@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/nav_graph"
+    app:startDestination="@id/loginFragment">
+
+    <fragment
+        android:id="@+id/loginFragment"
+        android:name="com.example.unischedule.ui.LoginFragment"
+        android:label="Login"
+        tools:layout="@layout/fragment_login">
+        <action
+            android:id="@+id/action_loginFragment_to_nav_dashboard"
+            app:destination="@id/nav_dashboard"
+            app:popUpTo="@id/loginFragment"
+            app:popUpToInclusive="true" />
+        <action
+            android:id="@+id/action_loginFragment_to_instructorDashboardFragment"
+            app:destination="@id/instructorDashboardFragment"
+            app:popUpTo="@id/loginFragment"
+            app:popUpToInclusive="true" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/nav_dashboard"
+        android:name="com.example.unischedule.ui.DashboardFragment"
+        android:label="Dashboard"
+        tools:layout="@layout/fragment_dashboard">
+        <action
+            android:id="@+id/action_nav_dashboard_to_nav_resources"
+            app:destination="@id/nav_resources" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/nav_resources"
+        android:name="com.example.unischedule.ui.ResourceManagementFragment"
+        android:label="Resource Management"
+        tools:layout="@layout/fragment_resource_management">
+        <argument
+            android:name="selectedTab"
+            android:defaultValue="0"
+            app:argType="integer" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/nav_courses"
+        android:name="com.example.unischedule.ui.CourseManagementFragment"
+        android:label="Course Management"
+        tools:layout="@layout/fragment_course_management" />
+
+    <fragment
+        android:id="@+id/nav_scheduler"
+        android:name="com.example.unischedule.ui.SchedulerFragment"
+        android:label="Scheduler"
+        tools:layout="@layout/fragment_scheduler" />
+
+    <fragment
+        android:id="@+id/instructorDashboardFragment"
+        android:name="com.example.unischedule.ui.InstructorDashboardFragment"
+        android:label="Instructor Dashboard"
+        tools:layout="@layout/fragment_instructor_dashboard">
+        <action
+            android:id="@+id/action_instructorDashboardFragment_to_availabilityFragment"
+            app:destination="@id/availabilityFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/availabilityFragment"
+        android:name="com.example.unischedule.ui.AvailabilityFragment"
+        android:label="My Availability"
+        tools:layout="@layout/fragment_availability" />
+</navigation>
