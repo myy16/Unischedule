@@ -2,14 +2,16 @@ package com.example.unischedule.data.repository
 
 import com.example.unischedule.data.entity.Classroom as RoomClassroom
 import com.example.unischedule.data.entity.Course as RoomCourse
-import com.example.unischedule.data.entity.Department as RoomDepartment
 import com.example.unischedule.data.entity.Instructor as RoomInstructor
 import com.example.unischedule.data.entity.Schedule as RoomSchedule
 import com.example.unischedule.data.firestore.AdminAccount
+import com.example.unischedule.data.firestore.Classroom
+import com.example.unischedule.data.firestore.Course
 import com.example.unischedule.data.firestore.Lecturer
 import com.example.unischedule.data.session.UserSession
 import com.example.unischedule.util.UiState
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.Query
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
@@ -20,23 +22,45 @@ import kotlinx.coroutines.withContext
 
 class FirestoreRepository(private val db: FirebaseFirestore) {
 
+    private inline fun <reified T> observeQuery(query: Query): Flow<UiState<List<T>>> = callbackFlow {
+        trySend(UiState.Loading)
+        val registration = query.addSnapshotListener { snapshot, error ->
+            if (error != null) {
+                trySend(UiState.Error(error.message ?: "Firestore Listener Error"))
+                return@addSnapshotListener
+            }
+
+            val items = snapshot?.toObjects(T::class.java) ?: emptyList()
+            trySend(UiState.Success(items))
+        }
+
+        awaitClose { registration.remove() }
+    }
+
     /**
      * Phase 2: CallbackFlow for real-time updates from Cloud Firestore.
      * Follows sustainable coding practices: non-blocking and lifecycle-safe when collected properly.
      */
-    fun observeSchedules(): Flow<UiState<List<RoomSchedule>>> = callbackFlow {
-        trySend(UiState.Loading)
-        val registration = db.collection("schedules")
-            .addSnapshotListener { snapshot, error ->
-                if (error != null) {
-                    trySend(UiState.Error(error.message ?: "Firestore Listener Error"))
-                    return@addSnapshotListener
-                }
-                val schedules = snapshot?.toObjects(RoomSchedule::class.java) ?: emptyList()
-                trySend(UiState.Success(schedules))
-            }
-        awaitClose { registration.remove() }
-    }
+    fun observeSchedules(): Flow<UiState<List<RoomSchedule>>> = observeQuery(db.collection("schedules"))
+
+    fun observeUnassignedLecturers(): Flow<UiState<List<Lecturer>>> =
+        observeQuery(
+            db.collection("lecturers")
+                .whereEqualTo("role", "Lecturer")
+                .whereEqualTo("departmentId", 0L)
+        )
+
+    fun observeUnassignedCourses(): Flow<UiState<List<Course>>> =
+        observeQuery(
+            db.collection("courses")
+                .whereEqualTo("departmentId", 0L)
+        )
+
+    fun observeAvailableClassrooms(): Flow<UiState<List<Classroom>>> =
+        observeQuery(
+            db.collection("classrooms")
+                .whereEqualTo("isAvailable", true)
+        )
 
     suspend fun authenticateUser(username: String, passwordHash: String): AuthenticatedUser? = withContext(Dispatchers.IO) {
         authenticateAdmin(username, passwordHash) ?: authenticateLecturer(username, passwordHash)
@@ -106,6 +130,15 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
     suspend fun addCourse(course: RoomCourse) = withContext(Dispatchers.IO) {
         try {
             db.collection("courses").document(course.id.toString()).set(course).await()
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            throw e
+        }
+    }
+
+    suspend fun addLecturer(lecturer: Lecturer) = withContext(Dispatchers.IO) {
+        try {
+            db.collection("lecturers").document(lecturer.id.toString()).set(lecturer).await()
         } catch (e: Exception) {
             if (e is CancellationException) throw e
             throw e

@@ -7,5 +7,6 @@ data class Classroom(
     var id: Long = 0,
     var name: String = "",
     var capacity: Int = 0,
-    var isLab: Boolean = false
+    var isLab: Boolean = false,
+    var isAvailable: Boolean = true
 )

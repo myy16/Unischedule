@@ -4,15 +4,64 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import androidx.core.content.FileProvider
+import com.example.unischedule.data.firestore.Lecturer
 import com.example.unischedule.data.entity.Course
 import com.example.unischedule.data.entity.Schedule
+import com.example.unischedule.data.imports.ImportedLecturerAccount
+import com.example.unischedule.util.PasswordHasher
 import org.apache.poi.ss.usermodel.WorkbookFactory
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
 import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
+import java.util.Locale
+import kotlin.random.Random
+
+private val initialPasswordCharset = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+
+data class LecturerImportRow(
+    val lecturer: Lecturer,
+    val initialPassword: String
+)
 
 object ExcelHelper {
+
+    fun importLecturersFromExcel(inputStream: InputStream): List<LecturerImportRow> {
+        val lecturers = mutableListOf<LecturerImportRow>()
+        try {
+            val workbook = WorkbookFactory.create(inputStream)
+            val sheet = workbook.getSheetAt(0)
+
+            for (i in 1..sheet.lastRowNum) {
+                val row = sheet.getRow(i) ?: continue
+                val fullName = row.getCell(0)?.toString()?.trim().orEmpty()
+                if (fullName.isBlank()) continue
+
+                val departmentId = row.getCell(1)?.toString()?.trim()?.replace(".0", "")?.toLongOrNull() ?: 0L
+                val initialPassword = generateInitialPassword()
+                val username = generateUsername(fullName)
+
+                lecturers.add(
+                    LecturerImportRow(
+                        lecturer = Lecturer(
+                            fullName = fullName,
+                            departmentId = departmentId,
+                            username = username,
+                            passwordHash = PasswordHasher.sha256(initialPassword),
+                            role = "Lecturer",
+                            mustChangePassword = true
+                        ),
+                        initialPassword = initialPassword
+                    )
+                )
+            }
+
+            workbook.close()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        return lecturers
+    }
 
     /**
      * Imports courses from an Excel (.xlsx) file.
@@ -98,6 +147,27 @@ object ExcelHelper {
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
         context.startActivity(Intent.createChooser(intent, "Share Timetable via"))
+    }
+
+    private fun generateUsername(fullName: String): String {
+        val parts = fullName
+            .trim()
+            .split(Regex("[\\s_\\-]+"))
+            .filter { it.isNotBlank() }
+
+        return when {
+            parts.size >= 2 -> "${parts.first().lowercase(Locale.getDefault())}_${parts.last().lowercase(Locale.getDefault())}"
+            parts.size == 1 -> parts.first().lowercase(Locale.getDefault())
+            else -> "lecturer"
+        }
+    }
+
+    private fun generateInitialPassword(length: Int = 6): String {
+        return buildString(length) {
+            repeat(length) {
+                append(initialPasswordCharset.random(Random.Default))
+            }
+        }
     }
 
     private fun getDayName(day: Int): String = when (day) {

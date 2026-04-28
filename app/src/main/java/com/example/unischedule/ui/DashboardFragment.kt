@@ -9,23 +9,20 @@ import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
-import androidx.navigation.fragment.findNavController
-import com.example.unischedule.R
-import com.example.unischedule.data.database.UniversityDatabase
-import com.example.unischedule.data.repository.UniversityRepository
+import com.example.unischedule.data.repository.FirestoreRepository
 import com.example.unischedule.databinding.FragmentDashboardBinding
 import com.example.unischedule.util.UiState
-import com.example.unischedule.viewmodel.AdminViewModel
-import com.example.unischedule.viewmodel.ViewModelFactory
+import com.example.unischedule.viewmodel.FirestoreDashboardViewModel
+import com.example.unischedule.viewmodel.FirestoreDashboardViewModelFactory
+import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
 
 class DashboardFragment : Fragment() {
     private var _binding: FragmentDashboardBinding? = null
     private val binding get() = _binding!!
 
-    private val viewModel: AdminViewModel by viewModels {
-        val db = UniversityDatabase.getDatabase(requireContext(), lifecycleScope)
-        ViewModelFactory(UniversityRepository(db.universityDao()))
+    private val viewModel: FirestoreDashboardViewModel by viewModels {
+        FirestoreDashboardViewModelFactory(FirestoreRepository(FirebaseFirestore.getInstance()))
     }
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
@@ -35,49 +32,37 @@ class DashboardFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        setupStatCards()
         observeStats()
-    }
-
-    private fun setupStatCards() {
-        binding.cardFaculties.setOnClickListener {
-            val bundle = Bundle().apply { putInt("selectedTab", 0) }
-            findNavController().navigate(R.id.nav_resources, bundle)
-        }
-        binding.cardDepartments.setOnClickListener {
-            val bundle = Bundle().apply { putInt("selectedTab", 1) }
-            findNavController().navigate(R.id.nav_resources, bundle)
-        }
-        binding.cardInstructors.setOnClickListener {
-            val bundle = Bundle().apply { putInt("selectedTab", 2) }
-            findNavController().navigate(R.id.nav_resources, bundle)
-        }
-        binding.cardCourses.setOnClickListener {
-            findNavController().navigate(R.id.nav_courses)
-        }
     }
 
     private fun observeStats() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 launch {
-                    viewModel.facultiesState.collect { state ->
-                        if (state is UiState.Success) binding.facultyCountText.text = state.data.size.toString()
+                    viewModel.unassignedLecturersState.collect { state ->
+                        when (state) {
+                            is UiState.Success -> binding.unassignedLecturersCountText.text = state.data.toString()
+                            is UiState.Error -> binding.unassignedLecturersCountText.text = "!"
+                            is UiState.Loading -> binding.unassignedLecturersCountText.text = "--"
+                        }
                     }
                 }
                 launch {
-                    viewModel.departmentsState.collect { state ->
-                        if (state is UiState.Success) binding.deptCountText.text = state.data.size.toString()
+                    viewModel.unassignedCoursesState.collect { state ->
+                        when (state) {
+                            is UiState.Success -> binding.unassignedCoursesCountText.text = state.data.toString()
+                            is UiState.Error -> binding.unassignedCoursesCountText.text = "!"
+                            is UiState.Loading -> binding.unassignedCoursesCountText.text = "--"
+                        }
                     }
                 }
                 launch {
-                    viewModel.coursesState.collect { state ->
-                        if (state is UiState.Success) binding.courseCountText.text = state.data.size.toString()
-                    }
-                }
-                launch {
-                    viewModel.instructorsState.collect { state ->
-                        if (state is UiState.Success) binding.instructorCountText.text = state.data.size.toString()
+                    viewModel.availableClassroomsState.collect { state ->
+                        when (state) {
+                            is UiState.Success -> binding.availableClassroomsCountText.text = state.data.toString()
+                            is UiState.Error -> binding.availableClassroomsCountText.text = "!"
+                            is UiState.Loading -> binding.availableClassroomsCountText.text = "--"
+                        }
                     }
                 }
             }

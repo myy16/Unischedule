@@ -3,184 +3,158 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#F5F5F5">
+    android:background="#F6F7FB">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="16dp">
+        android:padding="20dp">
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="University Overview"
-            android:textSize="24sp"
-            android:textStyle="bold"
-            android:textColor="@color/black"
-            android:layout_marginBottom="16dp"/>
+            android:layout_marginBottom="6dp"
+            android:text="Admin Home"
+            android:textColor="#101828"
+            android:textSize="28sp"
+            android:textStyle="bold" />
 
-        <GridLayout
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="20dp"
+            android:text="Live Firestore summary panels"
+            android:textColor="#667085"
+            android:textSize="14sp" />
+
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/cardUnassignedLecturers"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:columnCount="2"
-            android:rowCount="2"
-            android:alignmentMode="alignMargins"
-            android:columnOrderPreserved="false">
+            android:layout_marginBottom="14dp"
+            app:cardCornerRadius="18dp"
+            app:cardElevation="4dp"
+            app:cardBackgroundColor="#FFFFFF">
 
-            <!-- Faculties Stat -->
-            <com.google.android.material.card.MaterialCardView
-                android:id="@+id/cardFaculties"
-                android:layout_width="0dp"
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_columnWeight="1"
-                android:layout_margin="8dp"
-                android:clickable="true"
-                android:focusable="true"
-                app:rippleColor="?attr/colorControlHighlight"
-                app:cardCornerRadius="12dp"
-                app:cardElevation="4dp">
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="16dp"
-                    android:gravity="center">
-                    <ImageView
-                        android:layout_width="40dp"
-                        android:layout_height="40dp"
-                        android:src="@android:drawable/ic_menu_today"
-                        app:tint="@color/purple_500"/>
-                    <TextView
-                        android:id="@+id/facultyCountText"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="0"
-                        android:textSize="24sp"
-                        android:textStyle="bold"/>
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Faculties"
-                        android:textSize="14sp"/>
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
+                android:orientation="vertical"
+                android:padding="20dp">
 
-            <!-- Departments Stat -->
-            <com.google.android.material.card.MaterialCardView
-                android:id="@+id/cardDepartments"
-                android:layout_width="0dp"
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Unassigned Lecturers"
+                    android:textColor="#344054"
+                    android:textSize="15sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/unassignedLecturersCountText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:text="--"
+                    android:textColor="#0F172A"
+                    android:textSize="36sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="Lecturers without a department assignment"
+                    android:textColor="#667085"
+                    android:textSize="13sp" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/cardUnassignedCourses"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="14dp"
+            app:cardCornerRadius="18dp"
+            app:cardElevation="4dp"
+            app:cardBackgroundColor="#FFFFFF">
+
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_columnWeight="1"
-                android:layout_margin="8dp"
-                android:clickable="true"
-                android:focusable="true"
-                app:rippleColor="?attr/colorControlHighlight"
-                app:cardCornerRadius="12dp"
-                app:cardElevation="4dp">
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="16dp"
-                    android:gravity="center">
-                    <ImageView
-                        android:layout_width="40dp"
-                        android:layout_height="40dp"
-                        android:src="@android:drawable/ic_menu_manage"
-                        app:tint="@color/teal_700"/>
-                    <TextView
-                        android:id="@+id/deptCountText"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="0"
-                        android:textSize="24sp"
-                        android:textStyle="bold"/>
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Departments"
-                        android:textSize="14sp"/>
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
+                android:orientation="vertical"
+                android:padding="20dp">
 
-            <!-- Instructors Stat -->
-            <com.google.android.material.card.MaterialCardView
-                android:id="@+id/cardInstructors"
-                android:layout_width="0dp"
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Unassigned Courses"
+                    android:textColor="#344054"
+                    android:textSize="15sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/unassignedCoursesCountText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:text="--"
+                    android:textColor="#0F172A"
+                    android:textSize="36sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="Courses not yet assigned to a department"
+                    android:textColor="#667085"
+                    android:textSize="13sp" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/cardAvailableClassrooms"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:cardCornerRadius="18dp"
+            app:cardElevation="4dp"
+            app:cardBackgroundColor="#FFFFFF">
+
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_columnWeight="1"
-                android:layout_margin="8dp"
-                android:clickable="true"
-                android:focusable="true"
-                app:rippleColor="?attr/colorControlHighlight"
-                app:cardCornerRadius="12dp"
-                app:cardElevation="4dp">
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="16dp"
-                    android:gravity="center">
-                    <ImageView
-                        android:layout_width="40dp"
-                        android:layout_height="40dp"
-                        android:src="@android:drawable/ic_menu_info_details"
-                        app:tint="@color/purple_700"/>
-                    <TextView
-                        android:id="@+id/instructorCountText"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="0"
-                        android:textSize="24sp"
-                        android:textStyle="bold"/>
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Instructors"
-                        android:textSize="14sp"/>
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
+                android:orientation="vertical"
+                android:padding="20dp">
 
-            <!-- Courses Stat -->
-            <com.google.android.material.card.MaterialCardView
-                android:id="@+id/cardCourses"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_columnWeight="1"
-                android:layout_margin="8dp"
-                android:clickable="true"
-                android:focusable="true"
-                app:rippleColor="?attr/colorControlHighlight"
-                app:cardCornerRadius="12dp"
-                app:cardElevation="4dp">
-                <LinearLayout
-                    android:layout_width="match_parent"
+                <TextView
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="16dp"
-                    android:gravity="center">
-                    <ImageView
-                        android:layout_width="40dp"
-                        android:layout_height="40dp"
-                        android:src="@android:drawable/ic_menu_edit"
-                        app:tint="@color/teal_200"/>
-                    <TextView
-                        android:id="@+id/courseCountText"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="0"
-                        android:textSize="24sp"
-                        android:textStyle="bold"/>
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Courses"
-                        android:textSize="14sp"/>
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
+                    android:text="Available Classrooms"
+                    android:textColor="#344054"
+                    android:textSize="15sp"
+                    android:textStyle="bold" />
 
-        </GridLayout>
+                <TextView
+                    android:id="@+id/availableClassroomsCountText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:text="--"
+                    android:textColor="#0F172A"
+                    android:textSize="36sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="Classrooms marked as available in Firestore"
+                    android:textColor="#667085"
+                    android:textSize="13sp" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
 
     </LinearLayout>
 </androidx.core.widget.NestedScrollView>
