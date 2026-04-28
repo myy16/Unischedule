@@ -13,3 +13,7 @@
 .externalNativeBuild
 .cxx
 local.properties
+Unischedule.code-workspace
+google-services.json
+chat_doc.md
+

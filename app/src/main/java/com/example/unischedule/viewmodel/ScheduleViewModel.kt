@@ -12,13 +12,13 @@ import kotlinx.coroutines.launch
 
 class ScheduleViewModel(private val repository: UniversityRepository) : ViewModel() {
 
-    private val _scheduleDetailsState = MutableStateFlow<UiState<List<ScheduleWithDetails>>>(UiState.Idle)
+    private val _scheduleDetailsState = MutableStateFlow<UiState<List<ScheduleWithDetails>>>(UiState.Loading)
     val scheduleDetailsState: StateFlow<UiState<List<ScheduleWithDetails>>> = _scheduleDetailsState.asStateFlow()
 
-    private val _assignmentState = MutableStateFlow<UiState<AssignmentResult?>>(UiState.Idle)
+    private val _assignmentState = MutableStateFlow<UiState<AssignmentResult?>>(UiState.Loading)
     val assignmentState: StateFlow<UiState<AssignmentResult?>> = _assignmentState.asStateFlow()
 
-    private val _coursesState = MutableStateFlow<UiState<List<Course>>>(UiState.Idle)
+    private val _coursesState = MutableStateFlow<UiState<List<Course>>>(UiState.Loading)
     val coursesState: StateFlow<UiState<List<Course>>> = _coursesState.asStateFlow()
 
     init {
@@ -41,7 +41,7 @@ class ScheduleViewModel(private val repository: UniversityRepository) : ViewMode
     private fun loadCourses() {
         _coursesState.value = UiState.Loading
         viewModelScope.launch {
-            repository.getAllCourses()
+            repository.getAllCoursesFlow()
                 .catch { e ->
                     if (e is CancellationException) throw e
                     _coursesState.value = UiState.Error(e.message ?: "Failed to load courses")
@@ -74,6 +74,6 @@ class ScheduleViewModel(private val repository: UniversityRepository) : ViewMode
     }
 
     fun resetAssignmentState() {
-        _assignmentState.value = UiState.Idle
+        _assignmentState.value = UiState.Loading
     }
 }

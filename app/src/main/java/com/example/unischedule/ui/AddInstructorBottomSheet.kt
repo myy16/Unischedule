@@ -7,16 +7,18 @@ import android.view.ViewGroup
 import android.widget.ArrayAdapter
 import android.widget.Toast
 import androidx.fragment.app.viewModels
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import com.example.unischedule.data.database.UniversityDatabase
 import com.example.unischedule.data.entity.Department
 import com.example.unischedule.data.entity.Instructor
 import com.example.unischedule.data.repository.UniversityRepository
 import com.example.unischedule.databinding.BottomSheetAddInstructorBinding
+import com.example.unischedule.util.UiState
 import com.example.unischedule.viewmodel.AdminViewModel
 import com.example.unischedule.viewmodel.ViewModelFactory
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 class AddInstructorBottomSheet : BottomSheetDialogFragment() {
@@ -72,20 +74,24 @@ class AddInstructorBottomSheet : BottomSheetDialogFragment() {
 
     private fun setupDepartmentSpinner() {
         viewLifecycleOwner.lifecycleScope.launch {
-            viewModel.getAllDepartments().collectLatest { departments ->
-                val items = departments.map { department ->
-                    department.toSpinnerItem()
-                }
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.departmentsState.collect { state ->
+                    if (state is UiState.Success) {
+                        val items = state.data.map { department ->
+                            department.toSpinnerItem()
+                        }
 
-                val adapter = ArrayAdapter(
-                    requireContext(),
-                    android.R.layout.simple_spinner_item,
-                    items
-                ).apply {
-                    setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-                }
+                        val adapter = ArrayAdapter(
+                            requireContext(),
+                            android.R.layout.simple_spinner_item,
+                            items
+                        ).apply {
+                            setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+                        }
 
-                binding.departmentSpinner.adapter = adapter
+                        binding.departmentSpinner.adapter = adapter
+                    }
+                }
             }
         }
     }

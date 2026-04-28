@@ -6,7 +6,7 @@ object UserSession {
     var userName: String? = null
 
     enum class Role {
-        ADMIN, INSTRUCTOR
+        ADMIN, LECTURER, INSTRUCTOR
     }
 
     fun logout() {

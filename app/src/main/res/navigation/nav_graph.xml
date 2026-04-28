@@ -20,6 +20,11 @@
             app:destination="@id/instructorDashboardFragment"
             app:popUpTo="@id/loginFragment"
             app:popUpToInclusive="true" />
+        <action
+            android:id="@+id/action_loginFragment_to_passwordChangeFragment"
+            app:destination="@id/passwordChangeFragment"
+            app:popUpTo="@id/loginFragment"
+            app:popUpToInclusive="true" />
     </fragment>
 
     <fragment
@@ -70,4 +75,10 @@
         android:name="com.example.unischedule.ui.AvailabilityFragment"
         android:label="My Availability"
         tools:layout="@layout/fragment_availability" />
+
+    <fragment
+        android:id="@+id/passwordChangeFragment"
+        android:name="com.example.unischedule.ui.PasswordChangeFragment"
+        android:label="Change Password"
+        tools:layout="@layout/fragment_password_change" />
 </navigation>

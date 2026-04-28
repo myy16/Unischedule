@@ -6,15 +6,17 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.GridLayoutManager
 import com.example.unischedule.data.database.UniversityDatabase
 import com.example.unischedule.data.repository.UniversityRepository
 import com.example.unischedule.data.session.UserSession
 import com.example.unischedule.databinding.FragmentAvailabilityBinding
+import com.example.unischedule.util.UiState
 import com.example.unischedule.viewmodel.InstructorViewModel
 import com.example.unischedule.viewmodel.ViewModelFactory
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 class AvailabilityFragment : Fragment() {
@@ -37,22 +39,23 @@ class AvailabilityFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         val instructorId = UserSession.userId ?: return
+        viewModel.loadMyAvailability(instructorId)
 
         adapter = AvailabilityAdapter { day, time ->
             viewModel.toggleAvailability(instructorId, day, time)
         }
 
-        // 5 columns for Mon, Tue, Wed, Thu, Fri
-        val layoutManager = GridLayoutManager(requireContext(), 5)
-        binding.availabilityRecyclerView.layoutManager = layoutManager
+        binding.availabilityRecyclerView.layoutManager = GridLayoutManager(requireContext(), 5)
         binding.availabilityRecyclerView.adapter = adapter
-        
-        // Disable nested scrolling if needed, but let's keep it simple
         binding.availabilityRecyclerView.setHasFixedSize(true)
 
         viewLifecycleOwner.lifecycleScope.launch {
-            viewModel.getMyAvailability(instructorId).collectLatest {
-                adapter.updateData(it)
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.availabilityState.collect { state ->
+                    if (state is UiState.Success) {
+                        adapter.updateData(state.data)
+                    }
+                }
             }
         }
     }

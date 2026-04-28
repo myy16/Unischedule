@@ -11,19 +11,19 @@ import kotlinx.coroutines.launch
 
 class AdminViewModel(private val repository: UniversityRepository) : ViewModel() {
 
-    private val _facultiesState = MutableStateFlow<UiState<List<Faculty>>>(UiState.Idle)
+    private val _facultiesState = MutableStateFlow<UiState<List<Faculty>>>(UiState.Loading)
     val facultiesState: StateFlow<UiState<List<Faculty>>> = _facultiesState.asStateFlow()
 
-    private val _departmentsState = MutableStateFlow<UiState<List<Department>>>(UiState.Idle)
+    private val _departmentsState = MutableStateFlow<UiState<List<Department>>>(UiState.Loading)
     val departmentsState: StateFlow<UiState<List<Department>>> = _departmentsState.asStateFlow()
 
-    private val _coursesState = MutableStateFlow<UiState<List<Course>>>(UiState.Idle)
+    private val _coursesState = MutableStateFlow<UiState<List<Course>>>(UiState.Loading)
     val coursesState: StateFlow<UiState<List<Course>>> = _coursesState.asStateFlow()
 
-    private val _instructorsState = MutableStateFlow<UiState<List<Instructor>>>(UiState.Idle)
+    private val _instructorsState = MutableStateFlow<UiState<List<Instructor>>>(UiState.Loading)
     val instructorsState: StateFlow<UiState<List<Instructor>>> = _instructorsState.asStateFlow()
 
-    private val _classroomsState = MutableStateFlow<UiState<List<Classroom>>>(UiState.Idle)
+    private val _classroomsState = MutableStateFlow<UiState<List<Classroom>>>(UiState.Loading)
     val classroomsState: StateFlow<UiState<List<Classroom>>> = _classroomsState.asStateFlow()
 
     init {
@@ -31,14 +31,14 @@ class AdminViewModel(private val repository: UniversityRepository) : ViewModel()
     }
 
     private fun loadAllData() {
-        observeData(_facultiesState) { repository.getAllFaculties() }
-        observeData(_departmentsState) { repository.getAllDepartments() }
-        observeData(_coursesState) { repository.getAllCourses() }
-        observeData(_instructorsState) { repository.getAllInstructors() }
-        observeData(_classroomsState) { repository.getAllClassrooms() }
+        observeData(_facultiesState) { repository.getAllFacultiesFlow() }
+        observeData(_departmentsState) { repository.getAllDepartmentsFlow() }
+        observeData(_coursesState) { repository.getAllCoursesFlow() }
+        observeData(_instructorsState) { repository.getAllInstructorsFlow() }
+        observeData(_classroomsState) { repository.getAllClassroomsFlow() }
     }
 
-    private fun <T> observeData(state: MutableStateFlow<UiState<T>>, flowProvider: () -> Flow<T>) {
+    private fun <T> observeData(state: MutableStateFlow<UiState<List<T>>>, flowProvider: () -> Flow<List<T>>) {
         state.value = UiState.Loading
         viewModelScope.launch {
             flowProvider()
@@ -65,7 +65,6 @@ class AdminViewModel(private val repository: UniversityRepository) : ViewModel()
                 block()
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
-                // Global error channel could be implemented here
             }
         }
     }

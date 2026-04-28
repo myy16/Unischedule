@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.ksp)
+    id("com.google.gms.google-services")
 }
 
 android {
@@ -70,6 +71,7 @@ dependencies {
 
     // Coroutines
     implementation(libs.coroutines.android)
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.9.0")
 
     // Navigation
     implementation(libs.nav.fragment.ktx)
@@ -78,6 +80,10 @@ dependencies {
     // Apache POI for Excel support
     implementation(libs.poi)
     implementation(libs.poi.ooxml)
+
+    // Firebase
+    implementation(platform("com.google.firebase:firebase-bom:34.12.0"))
+    implementation("com.google.firebase:firebase-firestore")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

@@ -64,7 +64,7 @@ class MainActivity : AppCompatActivity() {
 
         // Hide toolbar and drawer on Login screen
         navController.addOnDestinationChangedListener { _, destination: NavDestination, _ ->
-            if (destination.id == R.id.loginFragment) {
+            if (destination.id == R.id.loginFragment || destination.id == R.id.passwordChangeFragment) {
                 binding.toolbar.visibility = View.GONE
                 drawerLayout.setDrawerLockMode(DrawerLayout.LOCK_MODE_LOCKED_CLOSED)
             } else {

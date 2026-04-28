@@ -7,15 +7,16 @@ import android.view.ViewGroup
 import android.widget.ArrayAdapter
 import android.widget.Toast
 import androidx.fragment.app.viewModels
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import com.example.unischedule.data.database.UniversityDatabase
-import com.example.unischedule.data.entity.Faculty
 import com.example.unischedule.data.repository.UniversityRepository
 import com.example.unischedule.databinding.BottomSheetAddDepartmentBinding
+import com.example.unischedule.util.UiState
 import com.example.unischedule.viewmodel.AdminViewModel
 import com.example.unischedule.viewmodel.ViewModelFactory
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 class AddDepartmentBottomSheet : BottomSheetDialogFragment() {
@@ -56,23 +57,23 @@ class AddDepartmentBottomSheet : BottomSheetDialogFragment() {
                 return@setOnClickListener
             }
 
-            try {
-                viewModel.addDepartment(selectedFaculty.id, name)
-                Toast.makeText(requireContext(), "Department added successfully", Toast.LENGTH_SHORT).show()
-                dismiss()
-            } catch (e: Exception) {
-                Toast.makeText(requireContext(), "Error adding department: ${e.message}", Toast.LENGTH_LONG).show()
-            }
+            viewModel.addDepartment(selectedFaculty.id, name)
+            Toast.makeText(requireContext(), "Department addition requested", Toast.LENGTH_SHORT).show()
+            dismiss()
         }
     }
 
     private fun setupFacultySpinner() {
         viewLifecycleOwner.lifecycleScope.launch {
-            viewModel.faculties.collectLatest { faculties ->
-                val items = faculties.map { FacultySpinnerItem(it.id, it.name) }
-                val adapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, items)
-                adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-                binding.facultySpinner.adapter = adapter
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.facultiesState.collect { state ->
+                    if (state is UiState.Success) {
+                        val items = state.data.map { FacultySpinnerItem(it.id, it.name) }
+                        val adapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, items)
+                        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+                        binding.facultySpinner.adapter = adapter
+                    }
+                }
             }
         }
     }

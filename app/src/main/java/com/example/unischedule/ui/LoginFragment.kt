@@ -6,18 +6,29 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.viewModels
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
 import com.example.unischedule.R
-import com.example.unischedule.data.database.UniversityDatabase
+import com.example.unischedule.data.repository.FirestoreRepository
 import com.example.unischedule.data.session.UserSession
 import com.example.unischedule.databinding.FragmentLoginBinding
+import com.example.unischedule.util.UiState
+import com.example.unischedule.viewmodel.LoginViewModel
+import com.example.unischedule.viewmodel.LoginViewModelFactory
+import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
 
 class LoginFragment : Fragment() {
 
     private var _binding: FragmentLoginBinding? = null
     private val binding get() = _binding!!
+
+    private val viewModel: LoginViewModel by viewModels {
+        LoginViewModelFactory(FirestoreRepository(FirebaseFirestore.getInstance()))
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -39,33 +50,35 @@ class LoginFragment : Fragment() {
                 return@setOnClickListener
             }
 
-            lifecycleScope.launch {
-                val db = UniversityDatabase.getDatabase(requireContext(), lifecycleScope)
-                val dao = db.universityDao()
+            viewModel.login(username, password)
+        }
 
-                // 1. Check Admin
-                val admin = dao.getAdminByUsername(username)
-                if (admin != null && admin.passwordHash == password) {
-                    UserSession.userId = admin.id
-                    UserSession.userRole = UserSession.Role.ADMIN
-                    UserSession.userName = admin.username
-                    findNavController().navigate(R.id.action_loginFragment_to_nav_dashboard)
-                    return@launch
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.loginState.collect { state ->
+                    when (state) {
+                        is UiState.Loading -> Unit
+                        is UiState.Error -> Toast.makeText(context, state.message, Toast.LENGTH_SHORT).show()
+                        is UiState.Success -> handleLoginSuccess(state.data)
+                    }
                 }
-
-                // 2. Check Instructor
-                val instructor = dao.getInstructorByEmail(username)
-                if (instructor != null && instructor.passwordHash == password) {
-                    UserSession.userId = instructor.id
-                    UserSession.userRole = UserSession.Role.INSTRUCTOR
-                    UserSession.userName = instructor.name
-                    findNavController().navigate(R.id.action_loginFragment_to_instructorDashboardFragment)
-                    return@launch
-                }
-                
-                Toast.makeText(context, "Invalid credentials", Toast.LENGTH_SHORT).show()
             }
         }
+    }
+
+    private fun handleLoginSuccess(user: com.example.unischedule.data.repository.AuthenticatedUser) {
+        UserSession.userId = user.id
+        UserSession.userRole = user.role
+        UserSession.userName = user.username
+
+        val destination = when {
+            user.mustChangePassword -> R.id.action_loginFragment_to_passwordChangeFragment
+            user.role == UserSession.Role.ADMIN -> R.id.action_loginFragment_to_nav_dashboard
+            else -> R.id.action_loginFragment_to_instructorDashboardFragment
+        }
+
+        findNavController().navigate(destination)
+        viewModel.resetState()
     }
 
     override fun onDestroyView() {
