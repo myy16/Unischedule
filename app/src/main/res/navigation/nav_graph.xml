@@ -94,4 +94,10 @@
         android:label="Weekly Schedule"
         tools:layout="@layout/fragment_calendar" />
 
+    <fragment
+        android:id="@+id/assignmentFragment"
+        android:name="com.example.unischedule.ui.AssignmentFragment"
+        android:label="Assign Course"
+        tools:layout="@layout/fragment_assignment" />
+
 </navigation>

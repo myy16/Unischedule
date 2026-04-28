@@ -2,10 +2,16 @@ package com.example.unischedule.data.entity
 
 import androidx.room.Entity
 import androidx.room.ForeignKey
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
 @Entity(
     tableName = "schedules",
+    indices = [
+        Index(value = ["courseId"]),
+        Index(value = ["instructorId"]),
+        Index(value = ["classroomId"])
+    ],
     foreignKeys = [
         ForeignKey(entity = Course::class, parentColumns = ["id"], childColumns = ["courseId"], onDelete = ForeignKey.CASCADE),
         ForeignKey(entity = Instructor::class, parentColumns = ["id"], childColumns = ["instructorId"], onDelete = ForeignKey.CASCADE),

@@ -13,18 +13,16 @@ import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
-import com.example.unischedule.data.database.UniversityDatabase
-import com.example.unischedule.data.entity.Course
-import com.example.unischedule.data.entity.Schedule
+import com.example.unischedule.data.firestore.Course
 import com.example.unischedule.data.repository.AssignmentResult
-import com.example.unischedule.data.repository.UniversityRepository
+import com.example.unischedule.data.repository.FirestoreRepository
 import com.example.unischedule.databinding.BottomSheetAddScheduleBinding
 import com.example.unischedule.util.UiState
-import com.example.unischedule.viewmodel.ScheduleViewModel
-import com.example.unischedule.viewmodel.ViewModelFactory
+import com.example.unischedule.viewmodel.FirestoreScheduleViewModel
+import com.example.unischedule.viewmodel.FirestoreScheduleViewModelFactory
+import com.google.firebase.firestore.FirebaseFirestore
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.Job
 import java.util.*
 
 class AddScheduleBottomSheet : BottomSheetDialogFragment() {
@@ -32,13 +30,11 @@ class AddScheduleBottomSheet : BottomSheetDialogFragment() {
     private var _binding: BottomSheetAddScheduleBinding? = null
     private val binding get() = _binding!!
 
-    private val viewModel: ScheduleViewModel by viewModels {
-        val db = UniversityDatabase.getDatabase(requireContext(), lifecycleScope)
-        ViewModelFactory(UniversityRepository(db.universityDao()))
+    private val viewModel: FirestoreScheduleViewModel by viewModels {
+        FirestoreScheduleViewModelFactory(FirestoreRepository(FirebaseFirestore.getInstance()))
     }
 
     private var selectedCourse: Course? = null
-    private var dataCollectionJob: Job? = null
     
     private var selectedStartTime = "09:00"
     private var selectedEndTime = "10:00"
@@ -83,16 +79,15 @@ class AddScheduleBottomSheet : BottomSheetDialogFragment() {
             return
         }
 
-        val schedule = Schedule(
-            courseId = course.id,
-            instructorId = instructor.id,
+        viewModel.tryAddSchedule(
+            course = course,
+            lecturerId = instructor.id,
             classroomId = classroom.id,
             dayOfWeek = day,
             startTime = selectedStartTime,
-            endTime = selectedEndTime
+            endTime = selectedEndTime,
+            force = force
         )
-
-        viewModel.tryAddSchedule(schedule, course.departmentId, course.semester, force)
     }
 
     private fun setupSpinners() {
@@ -144,6 +139,30 @@ class AddScheduleBottomSheet : BottomSheetDialogFragment() {
                             val adapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, items)
                             adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
                             binding.courseSpinner.adapter = adapter
+                        }
+                    }
+                }
+                launch {
+                    viewModel.lecturersState.collect { state ->
+                        if (state is UiState.Success) {
+                            val items = state.data.map { lecturer ->
+                                ResourceSpinnerItem(lecturer.id, lecturer.fullName.ifBlank { lecturer.username })
+                            }
+                            val adapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, items)
+                            adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+                            binding.instructorSpinner.adapter = adapter
+                        }
+                    }
+                }
+                launch {
+                    viewModel.classroomsState.collect { state ->
+                        if (state is UiState.Success) {
+                            val items = state.data.map { classroom ->
+                                ResourceSpinnerItem(classroom.id, classroom.name)
+                            }
+                            val adapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, items)
+                            adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+                            binding.classroomSpinner.adapter = adapter
                         }
                     }
                 }

@@ -7,11 +7,11 @@ import android.view.ViewGroup
 import android.widget.Toast
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
-import com.example.unischedule.data.database.UniversityDatabase
-import com.example.unischedule.data.repository.UniversityRepository
+import com.example.unischedule.data.repository.FirestoreRepository
 import com.example.unischedule.databinding.BottomSheetAddFacultyBinding
-import com.example.unischedule.viewmodel.AdminViewModel
-import com.example.unischedule.viewmodel.ViewModelFactory
+import com.example.unischedule.viewmodel.FirestoreAdminViewModel
+import com.example.unischedule.viewmodel.FirestoreAdminViewModelFactory
+import com.google.firebase.firestore.FirebaseFirestore
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 
 class AddFacultyBottomSheet : BottomSheetDialogFragment() {
@@ -19,9 +19,8 @@ class AddFacultyBottomSheet : BottomSheetDialogFragment() {
     private var _binding: BottomSheetAddFacultyBinding? = null
     private val binding get() = _binding!!
 
-    private val viewModel: AdminViewModel by viewModels {
-        val db = UniversityDatabase.getDatabase(requireContext(), lifecycleScope)
-        ViewModelFactory(UniversityRepository(db.universityDao()))
+    private val viewModel: FirestoreAdminViewModel by viewModels {
+        FirestoreAdminViewModelFactory(FirestoreRepository(FirebaseFirestore.getInstance()))
     }
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {

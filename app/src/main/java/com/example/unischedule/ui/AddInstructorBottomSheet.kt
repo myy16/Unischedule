@@ -1,24 +1,21 @@
 package com.example.unischedule.ui
 
 import android.os.Bundle
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ArrayAdapter
 import android.widget.Toast
-import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
-import com.example.unischedule.data.database.UniversityDatabase
-import com.example.unischedule.data.entity.Department
-import com.example.unischedule.data.entity.Instructor
-import com.example.unischedule.data.repository.UniversityRepository
+import com.example.unischedule.data.firestore.Lecturer
+import com.example.unischedule.data.repository.FirestoreRepository
 import com.example.unischedule.databinding.BottomSheetAddInstructorBinding
 import com.example.unischedule.util.UiState
-import com.example.unischedule.viewmodel.AdminViewModel
-import com.example.unischedule.viewmodel.ViewModelFactory
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
+import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
 
 class AddInstructorBottomSheet : BottomSheetDialogFragment() {
@@ -26,10 +23,7 @@ class AddInstructorBottomSheet : BottomSheetDialogFragment() {
     private var _binding: BottomSheetAddInstructorBinding? = null
     private val binding get() = _binding!!
     
-    private val viewModel: AdminViewModel by viewModels {
-        val db = UniversityDatabase.getDatabase(requireContext(), lifecycleScope)
-        ViewModelFactory(UniversityRepository(db.universityDao()))
-    }
+    private val firestoreRepository by lazy { FirestoreRepository(FirebaseFirestore.getInstance()) }
 
     private data class DepartmentSpinnerItem(
         val id: Long,
@@ -59,26 +53,33 @@ class AddInstructorBottomSheet : BottomSheetDialogFragment() {
                 return@setOnClickListener
             }
 
-            viewModel.addInstructor(
-                Instructor(
-                    departmentId = selectedDept.id,
-                    name = name,
-                    email = email,
-                    title = title,
-                    passwordHash = "123456" // Default password
-                )
-            )
-            dismiss()
+            viewLifecycleOwner.lifecycleScope.launch {
+                try {
+                    val lecturer = Lecturer(
+                        id = (1000L..9999L).random(),  // Generate random ID like departments
+                        username = email.substringBefore("@"),  // Extract username from email
+                        passwordHash = "123456",  // Default password
+                        fullName = if (title.isBlank()) name else "$title $name",
+                        departmentId = selectedDept.id
+                    )
+                    firestoreRepository.addLecturer(lecturer)
+                    Toast.makeText(context, "Lecturer added successfully", Toast.LENGTH_SHORT).show()
+                    dismiss()
+                } catch (e: Exception) {
+                    Log.w("AddInstructor", "Failed to add lecturer", e)
+                    Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
+            }
         }
     }
 
     private fun setupDepartmentSpinner() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.departmentsState.collect { state ->
+                firestoreRepository.observeDepartments().collect { state ->
                     if (state is UiState.Success) {
                         val items = state.data.map { department ->
-                            department.toSpinnerItem()
+                            DepartmentSpinnerItem(id = department.id, label = department.name)
                         }
 
                         val adapter = ArrayAdapter(
@@ -94,10 +95,6 @@ class AddInstructorBottomSheet : BottomSheetDialogFragment() {
                 }
             }
         }
-    }
-
-    private fun Department.toSpinnerItem(): DepartmentSpinnerItem {
-        return DepartmentSpinnerItem(id = id, label = name)
     }
 
     override fun onDestroyView() {

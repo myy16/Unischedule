@@ -146,6 +146,9 @@ interface UniversityDao {
     @Query("SELECT * FROM faculties")
     fun getAllFaculties(): Flow<List<Faculty>>
 
+    @Query("SELECT * FROM faculties")
+    suspend fun getAllFacultiesSync(): List<Faculty>
+
     @Query("SELECT * FROM departments")
     fun getAllDepartments(): Flow<List<Department>>
 
@@ -180,4 +183,18 @@ interface UniversityDao {
 
     @Query("SELECT * FROM schedules WHERE instructorId = :instructorId")
     fun getSchedulesByInstructor(instructorId: Long): Flow<List<Schedule>>
+
+    // --- Sync query methods for migration ---
+
+    @Query("SELECT * FROM departments")
+    suspend fun getAllDepartmentsSync(): List<Department>
+
+    @Query("SELECT * FROM courses")
+    suspend fun getAllCoursesSync(): List<Course>
+
+    @Query("SELECT * FROM classrooms")
+    suspend fun getAllClassroomsSync(): List<Classroom>
+
+    @Query("SELECT * FROM instructors")
+    suspend fun getAllInstructorsSync(): List<Instructor>
 }

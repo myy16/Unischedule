@@ -2,10 +2,12 @@ package com.example.unischedule.data.entity
 
 import androidx.room.Entity
 import androidx.room.ForeignKey
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
 @Entity(
     tableName = "instructor_availability",
+    indices = [Index(value = ["instructorId"])],
     foreignKeys = [
         ForeignKey(
             entity = Instructor::class,

@@ -141,7 +141,7 @@ class CalendarFragment : Fragment() {
                 )
                 text = dayLabel
                 textSize = 12f
-                textStyle = android.graphics.Typeface.BOLD
+                setTypeface(null, android.graphics.Typeface.BOLD)
                 gravity = android.view.Gravity.CENTER
                 setBackgroundColor(android.graphics.Color.LTGRAY)
             }
@@ -270,7 +270,7 @@ class CalendarFragment : Fragment() {
             )
             text = "Course ${schedule.courseId}"
             textSize = 10f
-            textStyle = android.graphics.Typeface.BOLD
+            setTypeface(null, android.graphics.Typeface.BOLD)
             gravity = android.view.Gravity.CENTER
             setTextColor(android.graphics.Color.DKGRAY)
         }

@@ -13,14 +13,15 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
-import com.example.unischedule.data.database.UniversityDatabase
-import com.example.unischedule.data.repository.UniversityRepository
+import com.example.unischedule.data.firestore.Course as FirestoreCourse
+import com.example.unischedule.data.repository.FirestoreRepository
 import com.example.unischedule.databinding.FragmentResourceManagementBinding
 import com.example.unischedule.util.ExcelHelper
-import com.example.unischedule.viewmodel.AdminViewModel
-import com.example.unischedule.viewmodel.ViewModelFactory
+import com.example.unischedule.viewmodel.FirestoreAdminViewModel
+import com.example.unischedule.viewmodel.FirestoreAdminViewModelFactory
 import com.google.android.material.tabs.TabLayoutMediator
 import androidx.viewpager2.adapter.FragmentStateAdapter
+import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -31,9 +32,8 @@ class ResourceManagementFragment : Fragment() {
     private val binding get() = _binding!!
     private val TAG = "ResourceMgmtLifecycle"
 
-    private val viewModel: AdminViewModel by viewModels {
-        val db = UniversityDatabase.getDatabase(requireContext(), lifecycleScope)
-        ViewModelFactory(UniversityRepository(db.universityDao()))
+    private val viewModel: FirestoreAdminViewModel by viewModels {
+        FirestoreAdminViewModelFactory(FirestoreRepository(FirebaseFirestore.getInstance()))
     }
 
     private val importLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -87,7 +87,17 @@ class ResourceManagementFragment : Fragment() {
                 if (inputStream != null) {
                     val importedCourses = ExcelHelper.importCoursesFromExcel(inputStream)
                     importedCourses.forEach { course ->
-                        viewModel.addCourse(course)
+                        viewModel.addCourse(
+                            FirestoreCourse(
+                                id = if (course.id == 0L) System.currentTimeMillis() % 1_000_000 else course.id,
+                                departmentId = course.departmentId,
+                                code = course.code,
+                                name = course.name,
+                                year = course.year,
+                                semester = course.semester,
+                                isMandatory = course.isMandatory
+                            )
+                        )
                     }
                     withContext(Dispatchers.Main) {
                         Toast.makeText(context, "Imported ${importedCourses.size} courses", Toast.LENGTH_SHORT).show()
