@@ -61,6 +61,11 @@ class InstructorDashboardFragment : Fragment() {
             findNavController().navigate(R.id.loginFragment)
         }
 
+        // Task 5: Navigation to calendar view
+        binding.root.findViewById<View>(R.id.btnViewCalendar)?.setOnClickListener {
+            findNavController().navigate(R.id.action_instructorDashboardFragment_to_calendarFragment)
+        }
+
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.scheduleState.collect { state ->

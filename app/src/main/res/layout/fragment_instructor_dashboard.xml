@@ -41,13 +41,22 @@
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_marginTop="16dp"
-        app:layout_constraintBottom_toTopOf="@id/btnManageAvailability"
+        app:layout_constraintBottom_toTopOf="@id/btnViewCalendar"
         app:layout_constraintTop_toBottomOf="@id/welcomeText" />
+
+    <!-- Task 5: Calendar button for weekly view -->
+    <Button
+        android:id="@+id/btnViewCalendar"
+        android:layout_width="match_parent"
+        android:layout_height="50dp"
+        android:text="VIEW CALENDAR"
+        android:layout_marginBottom="8dp"
+        app:layout_constraintBottom_toTopOf="@id/btnManageAvailability" />
 
     <Button
         android:id="@+id/btnManageAvailability"
         android:layout_width="match_parent"
-        android:layout_height="60dp"
+        android:layout_height="50dp"
         android:text="MANAGE MY AVAILABILITY"
         app:layout_constraintBottom_toBottomOf="parent" />
 

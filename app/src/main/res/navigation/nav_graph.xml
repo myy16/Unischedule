@@ -71,6 +71,9 @@
         <action
             android:id="@+id/action_instructorDashboardFragment_to_availabilityFragment"
             app:destination="@id/availabilityFragment" />
+        <action
+            android:id="@+id/action_instructorDashboardFragment_to_calendarFragment"
+            app:destination="@id/calendarFragment" />
     </fragment>
 
     <fragment
@@ -84,4 +87,11 @@
         android:name="com.example.unischedule.ui.PasswordChangeFragment"
         android:label="Change Password"
         tools:layout="@layout/fragment_password_change" />
+
+    <fragment
+        android:id="@+id/calendarFragment"
+        android:name="com.example.unischedule.ui.CalendarFragment"
+        android:label="Weekly Schedule"
+        tools:layout="@layout/fragment_calendar" />
+
 </navigation>

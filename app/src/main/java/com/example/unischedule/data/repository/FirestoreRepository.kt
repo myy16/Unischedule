@@ -73,6 +73,17 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
                 .whereEqualTo("isAvailable", true)
         )
 
+    /**
+     * Task 5: Real-time listener for lecturer's schedule.
+     * Filters ScheduleEntry collection where lecturerId matches the logged-in lecturer.
+     * Used by CalendarFragment to display weekly grid.
+     */
+    fun observeLecturerSchedule(lecturerId: Long): Flow<UiState<List<ScheduleEntry>>> =
+        observeQuery(
+            db.collection("schedules")
+                .whereEqualTo("lecturerId", lecturerId)
+        )
+
     suspend fun authenticateUser(username: String, passwordHash: String): AuthenticatedUser? = withContext(Dispatchers.IO) {
         authenticateAdmin(username, passwordHash) ?: authenticateLecturer(username, passwordHash)
     }
