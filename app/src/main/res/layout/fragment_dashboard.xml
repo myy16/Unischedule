@@ -28,6 +28,14 @@
             android:textColor="#667085"
             android:textSize="14sp" />
 
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/openAssignmentButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:text="Open Assignment"
+            app:cornerRadius="14dp" />
+
         <com.google.android.material.card.MaterialCardView
             android:id="@+id/cardUnassignedLecturers"
             android:layout_width="match_parent"

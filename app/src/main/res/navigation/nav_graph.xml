@@ -35,6 +35,9 @@
         <action
             android:id="@+id/action_nav_dashboard_to_nav_resources"
             app:destination="@id/nav_resources" />
+        <action
+            android:id="@+id/action_nav_dashboard_to_assignmentFragment"
+            app:destination="@id/assignmentFragment" />
     </fragment>
 
     <fragment

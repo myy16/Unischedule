@@ -9,6 +9,8 @@ import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import androidx.navigation.fragment.findNavController
+import com.example.unischedule.R
 import com.example.unischedule.data.repository.FirestoreRepository
 import com.example.unischedule.databinding.FragmentDashboardBinding
 import com.example.unischedule.util.UiState
@@ -32,6 +34,11 @@ class DashboardFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+
+        binding.openAssignmentButton.setOnClickListener {
+            findNavController().navigate(R.id.assignmentFragment)
+        }
+
         observeStats()
     }
 

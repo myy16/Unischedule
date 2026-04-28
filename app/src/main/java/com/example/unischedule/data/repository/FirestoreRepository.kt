@@ -8,8 +8,10 @@ import com.example.unischedule.data.firestore.AdminAccount
 import com.example.unischedule.data.firestore.Classroom
 import com.example.unischedule.data.firestore.Course
 import com.example.unischedule.data.firestore.Lecturer
+import com.example.unischedule.data.firestore.ScheduleEntry
 import com.example.unischedule.data.session.UserSession
 import com.example.unischedule.util.UiState
+import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import kotlinx.coroutines.CancellationException
@@ -37,16 +39,25 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
         awaitClose { registration.remove() }
     }
 
+    private fun timeRangesOverlap(existingStart: String, existingEnd: String, newStart: String, newEnd: String): Boolean {
+        return existingStart < newEnd && newStart < existingEnd
+    }
+
     /**
      * Phase 2: CallbackFlow for real-time updates from Cloud Firestore.
      * Follows sustainable coding practices: non-blocking and lifecycle-safe when collected properly.
      */
     fun observeSchedules(): Flow<UiState<List<RoomSchedule>>> = observeQuery(db.collection("schedules"))
 
+    fun observeCourses(): Flow<UiState<List<Course>>> = observeQuery(db.collection("courses"))
+
+    fun observeLecturers(): Flow<UiState<List<Lecturer>>> = observeQuery(db.collection("lecturers"))
+
+    fun observeClassrooms(): Flow<UiState<List<Classroom>>> = observeQuery(db.collection("classrooms"))
+
     fun observeUnassignedLecturers(): Flow<UiState<List<Lecturer>>> =
         observeQuery(
             db.collection("lecturers")
-                .whereEqualTo("role", "Lecturer")
                 .whereEqualTo("departmentId", 0L)
         )
 
@@ -102,39 +113,84 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
         )
     }
 
-    /**
-     * Task 3: Intelligent Conflict Detection using Firestore Transactions (Atomic).
-     * Strictly verifies Instructor Availability, Instructor Conflict, and Room Capacity.
-     */
+    class AssignmentConflict(message: String) : IllegalStateException(message)
+
     suspend fun assignScheduleAtomic(
-        schedule: RoomSchedule,
-        course: RoomCourse,
-        departmentId: Long, 
-        semester: Int, 
-        force: Boolean = false
-    ): AssignmentResult = withContext(Dispatchers.IO) {
+        courseId: Long,
+        lecturerId: Long,
+        classroomId: Long,
+        dayOfWeek: Int,
+        startTime: String,
+        endTime: String
+    ) = withContext(Dispatchers.IO) {
         try {
             db.runTransaction { transaction ->
+                val course = readRequiredCourse(transaction, courseId)
+                readRequiredLecturer(transaction, lecturerId)
+                readRequiredClassroom(transaction, classroomId)
+
+                val scheduleSnapshot = transaction.get(db.collection("schedules")).documents
+                scheduleSnapshot.forEach { document ->
+                    val existing = document.toObject(ScheduleEntry::class.java) ?: return@forEach
+                    if (existing.dayOfWeek != dayOfWeek) return@forEach
+                    if (!timeRangesOverlap(existing.startTime, existing.endTime, startTime, endTime)) return@forEach
+
+                    if (existing.lecturerId == lecturerId) {
+                        throw AssignmentConflict("Lecturer is already assigned to another course in this slot.")
+                    }
+
+                    if (existing.classroomId == classroomId) {
+                        throw AssignmentConflict("Classroom is already booked for this slot.")
+                    }
+
+                    val sameMandatoryCourseGroup =
+                        course.isMandatory &&
+                        existing.courseIsMandatory &&
+                        existing.courseDepartmentId == course.departmentId &&
+                        existing.courseYear == course.year
+
+                    if (sameMandatoryCourseGroup) {
+                        throw AssignmentConflict("Mandatory courses for the same year and department cannot overlap.")
+                    }
+                }
+
                 val scheduleRef = db.collection("schedules").document()
-                transaction.set(scheduleRef, schedule)
-                // Transaction block must return a value, using null for success if no object is returned
+                transaction.set(
+                    scheduleRef,
+                    ScheduleEntry(
+                        id = 0,
+                        courseId = courseId,
+                        courseDepartmentId = course.departmentId,
+                        courseYear = course.year,
+                        courseIsMandatory = course.isMandatory,
+                        lecturerId = lecturerId,
+                        classroomId = classroomId,
+                        dayOfWeek = dayOfWeek,
+                        startTime = startTime,
+                        endTime = endTime
+                    )
+                )
                 null
             }.await()
-            AssignmentResult.Success
         } catch (e: Exception) {
             if (e is CancellationException) throw e
-            AssignmentResult.Error(e.message ?: "Critical Conflict Detected during transaction")
+            throw if (e is AssignmentConflict) e else AssignmentConflict(e.message ?: "Critical conflict detected during transaction.")
         }
     }
 
-    suspend fun addCourse(course: RoomCourse) = withContext(Dispatchers.IO) {
-        try {
-            db.collection("courses").document(course.id.toString()).set(course).await()
-        } catch (e: Exception) {
-            if (e is CancellationException) throw e
-            throw e
-        }
+    private fun readRequiredCourse(transaction: com.google.firebase.firestore.Transaction, courseId: Long): Course {
+        val snapshot = transaction.get(db.collection("courses").document(courseId.toString()))
+        return snapshot.toObject(Course::class.java) ?: throw AssignmentConflict("Selected course could not be found.")
     }
+
+    private fun readRequiredLecturer(transaction: com.google.firebase.firestore.Transaction, lecturerId: Long): Lecturer {
+        val snapshot = transaction.get(db.collection("lecturers").document(lecturerId.toString()))
+        return snapshot.toObject(Lecturer::class.java) ?: throw AssignmentConflict("Selected lecturer could not be found.")
+    }
+
+    private fun readRequiredClassroom(transaction: com.google.firebase.firestore.Transaction, classroomId: Long): Classroom {
+        val snapshot = transaction.get(db.collection("classrooms").document(classroomId.toString()))
+        return snapshot.toObject(Classroom::class.java) ?: throw AssignmentConflict("Selected classroom could not be found.")
 
     suspend fun addLecturer(lecturer: Lecturer) = withContext(Dispatchers.IO) {
         try {
