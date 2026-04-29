@@ -609,6 +609,23 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
     fun observeSchedulesFlat(): Flow<UiState<List<FlatScheduleEntry>>> =
         observeQuery(db.collection("schedules"))
 
+    fun observeUserStatus(userUid: String): Flow<UiState<String>> = callbackFlow {
+        trySend(UiState.Loading)
+        val registration = db.collection("users")
+            .document(userUid)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    trySend(UiState.Error(error.message ?: "Firestore Listener Error"))
+                    return@addSnapshotListener
+                }
+
+                val status = snapshot?.getString("status")?.takeIf { it.isNotBlank() } ?: "Available"
+                trySend(UiState.Success(status))
+            }
+
+        awaitClose { registration.remove() }
+    }
+
     suspend fun addScheduleFlat(schedule: FlatScheduleEntry) = withContext(Dispatchers.IO) {
         try {
             val documentId = if (schedule.scheduleId.isBlank()) db.collection("schedules").document().id else schedule.scheduleId

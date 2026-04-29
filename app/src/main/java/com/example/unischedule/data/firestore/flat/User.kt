@@ -21,6 +21,10 @@ data class User(
     @set:PropertyName("role")
     var role: String = "student",
 
+    @get:PropertyName("status")
+    @set:PropertyName("status")
+    var status: String = "Available",
+
     @get:PropertyName("deptId")
     @set:PropertyName("deptId")
     var deptId: Long = 0
