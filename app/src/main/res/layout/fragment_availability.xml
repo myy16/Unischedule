@@ -25,6 +25,17 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/availabilityTitle" />
 
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/availabilityStatusButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:text="Busy"
+        android:textAllCaps="false"
+        app:cornerRadius="16dp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/availabilitySubtitle" />
+
     <LinearLayout
         android:id="@+id/headerLayout"
         android:layout_width="match_parent"
@@ -33,7 +44,7 @@
         android:orientation="horizontal"
         android:background="#F5F5F5"
         android:paddingVertical="8dp"
-        app:layout_constraintTop_toBottomOf="@id/availabilitySubtitle">
+        app:layout_constraintTop_toBottomOf="@id/availabilityStatusButton">
 
         <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Mon" android:gravity="center" android:textStyle="bold" android:textSize="12sp"/>
         <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Tue" android:gravity="center" android:textStyle="bold" android:textSize="12sp"/>

@@ -66,6 +66,9 @@ class FirestoreScheduleViewModel(private val repository: FirestoreRepository) : 
 
     private fun mapErrorToResult(message: String, force: Boolean): AssignmentResult {
         return when {
+            message.contains("Lecturer conflict", ignoreCase = true) -> AssignmentResult.InstructorBusy(message)
+            message.contains("Room conflict", ignoreCase = true) -> AssignmentResult.RoomOccupied(message)
+            message.contains("Group conflict", ignoreCase = true) -> AssignmentResult.StudentGroupConflict(message)
             message.contains("Lecturer is already assigned", ignoreCase = true) -> AssignmentResult.InstructorBusy(message)
             message.contains("Classroom is already booked", ignoreCase = true) -> AssignmentResult.RoomOccupied(message)
             message.contains("Mandatory courses", ignoreCase = true) -> AssignmentResult.StudentGroupConflict(message)

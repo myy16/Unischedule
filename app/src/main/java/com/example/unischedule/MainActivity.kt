@@ -34,6 +34,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private val TAG = "MainActivityLifecycle"
     private val firestoreRepository by lazy { FirestoreRepository(FirebaseFirestore.getInstance()) }
+    private var firestoreRole: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -57,6 +58,10 @@ class MainActivity : AppCompatActivity() {
         }
 
         setSupportActionBar(binding.toolbar)
+
+        lifecycleScope.launch {
+            firestoreRole = fetchCurrentUserRole()
+        }
 
         val drawerLayout: DrawerLayout = binding.drawerLayout
         val navView: NavigationView = binding.navView
@@ -97,28 +102,44 @@ class MainActivity : AppCompatActivity() {
             } else {
                 binding.toolbar.visibility = View.VISIBLE
                 updateMenuVisibility(navView)
-                
-                if (UserSession.userRole == UserSession.Role.ADMIN) {
-                    drawerLayout.setDrawerLockMode(DrawerLayout.LOCK_MODE_UNLOCKED)
-                } else {
-                    // Lock drawer for Lecturers too since they use a different UI or limited menu
-                    drawerLayout.setDrawerLockMode(DrawerLayout.LOCK_MODE_LOCKED_CLOSED)
-                }
+                drawerLayout.setDrawerLockMode(DrawerLayout.LOCK_MODE_UNLOCKED)
             }
         }
     }
 
     private fun updateMenuVisibility(navigationView: NavigationView) {
         val menu = navigationView.menu
-        val isAdmin = UserSession.userRole == UserSession.Role.ADMIN
-        
-        // Admin-only items
-        menu.findItem(R.id.nav_resources)?.isVisible = isAdmin
-        menu.findItem(R.id.nav_courses)?.isVisible = isAdmin
-        menu.findItem(R.id.nav_scheduler)?.isVisible = isAdmin
-        
-        // Items visible to both or specific to Role
-        menu.findItem(R.id.nav_dashboard)?.isVisible = isAdmin
+        val isAdmin = (firestoreRole?.equals("admin", ignoreCase = true) == true) ||
+            UserSession.userRole == UserSession.Role.ADMIN
+
+        val adminOnlyItems = listOf(
+            R.id.nav_faculty,
+            R.id.nav_rooms,
+            R.id.nav_add_course,
+            R.id.nav_resources,
+            R.id.nav_courses,
+            R.id.nav_scheduler,
+            R.id.nav_dashboard
+        )
+
+        adminOnlyItems.forEach { itemId ->
+            menu.findItem(itemId)?.isVisible = isAdmin
+        }
+    }
+
+    private suspend fun fetchCurrentUserRole(): String? {
+        val userId = UserSession.userId ?: return null
+        return try {
+            val snapshot = FirebaseFirestore.getInstance()
+                .collection("users")
+                .document(userId.toString())
+                .get()
+                .await()
+
+            snapshot.getString("role")
+        } catch (_: Exception) {
+            null
+        }
     }
 
     private suspend fun migrateRoomDataToFirestore() {

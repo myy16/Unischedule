@@ -436,11 +436,12 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
                 .limit(1)
 
             val snapshot = query.get().await()
+            val availabilityCollection = db.collection("instructor_availability")
 
             if (snapshot.isEmpty) {
                 // Add new availability slot
                 val docId = "${instructorId}_${dayOfWeek}_${startTime}"
-                db.collection("instructor_availability").document(docId).set(
+                availabilityCollection.document(docId).set(
                     FirestoreInstructorAvailability(
                         id = docId,
                         instructorId = instructorId,
@@ -452,9 +453,25 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
             } else {
                 // Remove existing availability slot
                 snapshot.documents.forEach { doc ->
-                    db.collection("instructor_availability").document(doc.id).delete().await()
+                    availabilityCollection.document(doc.id).delete().await()
                 }
             }
+
+            val remainingSlots = availabilityCollection
+                .whereEqualTo("instructorId", instructorId)
+                .get()
+                .await()
+
+            db.collection("availability_status")
+                .document(instructorId.toString())
+                .set(
+                    mapOf(
+                        "instructorId" to instructorId,
+                        "isAvailable" to !remainingSlots.isEmpty,
+                        "updatedAt" to com.google.firebase.firestore.FieldValue.serverTimestamp()
+                    )
+                )
+                .await()
         } catch (e: Exception) {
             if (e is CancellationException) throw e
             throw e
