@@ -14,10 +14,13 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.example.unischedule.R
 import com.example.unischedule.data.entity.Course as RoomCourse
 import com.example.unischedule.data.firestore.Course as FirestoreCourse
 import com.example.unischedule.data.repository.FirestoreRepository
+import com.example.unischedule.data.session.UserSession
 import com.example.unischedule.databinding.DialogEditCourseBinding
 import com.example.unischedule.databinding.FragmentCourseManagementBinding
 import com.example.unischedule.util.ExcelHelper
@@ -49,6 +52,11 @@ class CourseManagementFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+
+        if (UserSession.userRole != UserSession.Role.ADMIN) {
+            findNavController().navigate(R.id.nav_dashboard)
+            return
+        }
 
         courseAdapter = ResourceAdapter { resourceItem ->
             val course = resourceItem.originalObject as? FirestoreCourse

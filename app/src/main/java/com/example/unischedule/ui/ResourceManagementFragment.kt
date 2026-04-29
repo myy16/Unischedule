@@ -13,14 +13,17 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
+import androidx.navigation.fragment.findNavController
 import com.example.unischedule.data.firestore.Course as FirestoreCourse
 import com.example.unischedule.data.repository.FirestoreRepository
+import com.example.unischedule.data.session.UserSession
 import com.example.unischedule.databinding.FragmentResourceManagementBinding
 import com.example.unischedule.util.ExcelHelper
 import com.example.unischedule.viewmodel.FirestoreAdminViewModel
 import com.example.unischedule.viewmodel.FirestoreAdminViewModelFactory
 import com.google.android.material.tabs.TabLayoutMediator
 import androidx.viewpager2.adapter.FragmentStateAdapter
+import com.example.unischedule.R
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -54,6 +57,11 @@ class ResourceManagementFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+
+        if (UserSession.userRole != UserSession.Role.ADMIN) {
+            findNavController().navigate(R.id.nav_dashboard)
+            return
+        }
 
         val adapter = ResourcePagerAdapter(this)
         binding.viewPager.adapter = adapter

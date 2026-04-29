@@ -14,8 +14,8 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.unischedule.R
 import com.example.unischedule.data.session.UserSession
 import com.example.unischedule.databinding.FragmentInstructorDashboardBinding
-import com.example.unischedule.util.StringUtil
 import com.example.unischedule.util.UiState
+import com.example.unischedule.util.toTitleCase
 import com.example.unischedule.viewmodel.FirestoreInstructorViewModel
 import com.example.unischedule.viewmodel.FirestoreInstructorViewModelFactory
 import com.google.firebase.firestore.FirebaseFirestore
@@ -40,10 +40,9 @@ class InstructorDashboardFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         val instructorId = UserSession.userId ?: return
-        
-        // Task 2: Welcome Message Formatting
-        val formattedName = StringUtil.formatUsername(UserSession.userName)
-        binding.welcomeText.text = "Welcome, $formattedName"
+
+        val formattedName = (UserSession.userName ?: "guest").toTitleCase()
+        binding.welcomeText.text = "Welcome $formattedName"
         
         viewModel.loadMySchedule(instructorId)
 

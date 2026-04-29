@@ -21,11 +21,15 @@ class LoginViewModel(private val repository: FirestoreRepository) : ViewModel() 
         viewModelScope.launch {
             try {
                 val hashedPassword = PasswordHasher.sha256(rawPassword)
-                val user = repository.authenticateUser(username, hashedPassword)
-                if (user == null) {
+                val authenticated = repository.authenticateUser(username, hashedPassword)
+                if (authenticated == null) {
                     _loginState.value = UiState.Error("Invalid credentials")
                 } else {
-                    _loginState.value = UiState.Success(user)
+                    val profile = repository.fetchUserProfile(authenticated.id.toString())
+                    val enrichedUser = authenticated.copy(
+                        username = profile?.full_name ?: authenticated.username
+                    )
+                    _loginState.value = UiState.Success(enrichedUser)
                 }
             } catch (e: Exception) {
                 _loginState.value = UiState.Error(e.message ?: "Login failed")

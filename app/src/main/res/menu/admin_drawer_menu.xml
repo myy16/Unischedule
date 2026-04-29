@@ -2,6 +2,10 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
     <group android:checkableBehavior="single">
         <item
+            android:id="@+id/admin_section"
+            android:enabled="false"
+            android:title="Admin Section" />
+        <item
             android:id="@+id/nav_dashboard"
             android:icon="@android:drawable/ic_menu_today"
             android:title="Dashboard" />

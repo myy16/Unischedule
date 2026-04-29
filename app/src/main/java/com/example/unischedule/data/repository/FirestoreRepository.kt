@@ -10,12 +10,17 @@ import com.example.unischedule.data.firestore.Faculty
 import com.example.unischedule.data.firestore.InstructorAvailability as FirestoreInstructorAvailability
 import com.example.unischedule.data.firestore.Lecturer
 import com.example.unischedule.data.firestore.ScheduleEntry
+import com.example.unischedule.data.firestore.flat.Classroom as FlatClassroom
+import com.example.unischedule.data.firestore.flat.Course as FlatCourse
+import com.example.unischedule.data.firestore.flat.ScheduleEntry as FlatScheduleEntry
+import com.example.unischedule.data.firestore.flat.User as FlatUser
 import com.example.unischedule.data.session.UserSession
 import com.example.unischedule.util.PasswordHasher
 import com.example.unischedule.util.UiState
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
+import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
@@ -492,6 +497,150 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
         try {
             val docId = "${instructorId}_${dayOfWeek}_${startTime}"
             db.collection("instructor_availability").document(docId).delete().await()
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            throw e
+        }
+    }
+
+    // Option A (Flat) - Users/Profile
+    suspend fun fetchUserProfile(userUid: String): FlatUser? = withContext(Dispatchers.IO) {
+        try {
+            db.collection("users")
+                .document(userUid)
+                .get()
+                .await()
+                .toObject(FlatUser::class.java)
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            null
+        }
+    }
+
+    suspend fun fetchCurrentUserProfileAfterAuth(): FlatUser? = withContext(Dispatchers.IO) {
+        try {
+            val uid = FirebaseAuth.getInstance().currentUser?.uid ?: return@withContext null
+            db.collection("users")
+                .document(uid)
+                .get()
+                .await()
+                .toObject(FlatUser::class.java)
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            null
+        }
+    }
+
+    // Option A (Flat) - Courses CRUD
+    suspend fun addCourseFlat(course: FlatCourse) = withContext(Dispatchers.IO) {
+        try {
+            db.collection("courses")
+                .document(course.courseId.toString())
+                .set(course)
+                .await()
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            throw e
+        }
+    }
+
+    suspend fun updateCourseFlat(course: FlatCourse) = withContext(Dispatchers.IO) {
+        try {
+            db.collection("courses")
+                .document(course.courseId.toString())
+                .set(course)
+                .await()
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            throw e
+        }
+    }
+
+    suspend fun deleteCourseFlat(courseId: Long) = withContext(Dispatchers.IO) {
+        try {
+            db.collection("courses")
+                .document(courseId.toString())
+                .delete()
+                .await()
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            throw e
+        }
+    }
+
+    // Option A (Flat) - Classrooms CRUD
+    suspend fun addClassroomFlat(classroom: FlatClassroom) = withContext(Dispatchers.IO) {
+        try {
+            db.collection("classrooms")
+                .document(classroom.classId.toString())
+                .set(classroom)
+                .await()
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            throw e
+        }
+    }
+
+    suspend fun updateClassroomFlat(classroom: FlatClassroom) = withContext(Dispatchers.IO) {
+        try {
+            db.collection("classrooms")
+                .document(classroom.classId.toString())
+                .set(classroom)
+                .await()
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            throw e
+        }
+    }
+
+    suspend fun deleteClassroomFlat(classId: Long) = withContext(Dispatchers.IO) {
+        try {
+            db.collection("classrooms")
+                .document(classId.toString())
+                .delete()
+                .await()
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            throw e
+        }
+    }
+
+    // Option A (Flat) - Schedules CRUD + realtime callbackFlow
+    fun observeSchedulesFlat(): Flow<UiState<List<FlatScheduleEntry>>> =
+        observeQuery(db.collection("schedules"))
+
+    suspend fun addScheduleFlat(schedule: FlatScheduleEntry) = withContext(Dispatchers.IO) {
+        try {
+            val documentId = if (schedule.scheduleId.isBlank()) db.collection("schedules").document().id else schedule.scheduleId
+            db.collection("schedules")
+                .document(documentId)
+                .set(schedule.copy(scheduleId = documentId))
+                .await()
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            throw e
+        }
+    }
+
+    suspend fun updateScheduleFlat(schedule: FlatScheduleEntry) = withContext(Dispatchers.IO) {
+        try {
+            val documentId = if (schedule.scheduleId.isBlank()) db.collection("schedules").document().id else schedule.scheduleId
+            db.collection("schedules")
+                .document(documentId)
+                .set(schedule.copy(scheduleId = documentId))
+                .await()
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            throw e
+        }
+    }
+
+    suspend fun deleteScheduleFlat(scheduleId: String) = withContext(Dispatchers.IO) {
+        try {
+            db.collection("schedules")
+                .document(scheduleId)
+                .delete()
+                .await()
         } catch (e: Exception) {
             if (e is CancellationException) throw e
             throw e

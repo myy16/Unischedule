@@ -5,7 +5,10 @@ import android.util.Log
 import android.view.View
 import androidx.appcompat.app.AppCompatActivity
 import androidx.drawerlayout.widget.DrawerLayout
+import androidx.activity.viewModels
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.NavController
 import androidx.navigation.NavDestination
 import androidx.navigation.fragment.NavHostFragment
@@ -23,10 +26,11 @@ import com.example.unischedule.data.firestore.Course as FirestoreCourse
 import com.example.unischedule.databinding.ActivityMainBinding
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.android.material.navigation.NavigationView
-import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
-import com.example.unischedule.util.UiState
+import com.example.unischedule.viewmodel.UserRole
+import com.example.unischedule.viewmodel.UserViewModel
+import com.example.unischedule.viewmodel.UserViewModelFactory
 
 class MainActivity : AppCompatActivity() {
 
@@ -34,7 +38,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private val TAG = "MainActivityLifecycle"
     private val firestoreRepository by lazy { FirestoreRepository(FirebaseFirestore.getInstance()) }
-    private var firestoreRole: String? = null
+    private val userViewModel: UserViewModel by viewModels {
+        UserViewModelFactory(firestoreRepository)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -59,10 +65,6 @@ class MainActivity : AppCompatActivity() {
 
         setSupportActionBar(binding.toolbar)
 
-        lifecycleScope.launch {
-            firestoreRole = fetchCurrentUserRole()
-        }
-
         val drawerLayout: DrawerLayout = binding.drawerLayout
         val navView: NavigationView = binding.navView
         
@@ -78,6 +80,16 @@ class MainActivity : AppCompatActivity() {
         )
         setupActionBarWithNavController(navController, appBarConfiguration)
         navView.setupWithNavController(navController)
+
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                userViewModel.roleState.collect { role ->
+                    updateMenuVisibility(navView, role)
+                }
+            }
+        }
+
+        userViewModel.loadProfileFromFirebaseAuth()
 
         // Handle logout separately
         navView.setNavigationItemSelectedListener { menuItem ->
@@ -101,16 +113,18 @@ class MainActivity : AppCompatActivity() {
                 drawerLayout.setDrawerLockMode(DrawerLayout.LOCK_MODE_LOCKED_CLOSED)
             } else {
                 binding.toolbar.visibility = View.VISIBLE
-                updateMenuVisibility(navView)
+                userViewModel.loadCurrentUserProfile(UserSession.userId?.toString())
                 drawerLayout.setDrawerLockMode(DrawerLayout.LOCK_MODE_UNLOCKED)
             }
         }
     }
 
-    private fun updateMenuVisibility(navigationView: NavigationView) {
+    private fun updateMenuVisibility(navigationView: NavigationView, role: UserRole) {
         val menu = navigationView.menu
-        val isAdmin = (firestoreRole?.equals("admin", ignoreCase = true) == true) ||
-            UserSession.userRole == UserSession.Role.ADMIN
+        val isAdmin = role == UserRole.ADMIN || UserSession.userRole == UserSession.Role.ADMIN
+
+        // Required explicit section visibility for RBAC.
+        menu.findItem(R.id.admin_section)?.isVisible = isAdmin
 
         val adminOnlyItems = listOf(
             R.id.nav_faculty,
@@ -124,21 +138,6 @@ class MainActivity : AppCompatActivity() {
 
         adminOnlyItems.forEach { itemId ->
             menu.findItem(itemId)?.isVisible = isAdmin
-        }
-    }
-
-    private suspend fun fetchCurrentUserRole(): String? {
-        val userId = UserSession.userId ?: return null
-        return try {
-            val snapshot = FirebaseFirestore.getInstance()
-                .collection("users")
-                .document(userId.toString())
-                .get()
-                .await()
-
-            snapshot.getString("role")
-        } catch (_: Exception) {
-            null
         }
     }
 
