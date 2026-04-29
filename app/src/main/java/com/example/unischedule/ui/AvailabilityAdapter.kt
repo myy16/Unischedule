@@ -1,9 +1,10 @@
 package com.example.unischedule.ui
 
-import android.graphics.Color
 import android.view.LayoutInflater
 import android.view.ViewGroup
+import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.RecyclerView
+import com.example.unischedule.R
 import com.example.unischedule.data.firestore.InstructorAvailability
 import com.example.unischedule.databinding.ItemAvailabilitySlotBinding
 
@@ -40,11 +41,16 @@ class AvailabilityAdapter(
         
         val availability = availabilities.find { it.dayOfWeek == day && it.startTime == time }
         
+        // Task 3: Real-Time Toggle Colors
         if (availability != null) {
-            holder.binding.cardView.setCardBackgroundColor(Color.parseColor("#C8E6C9")) // Greenish
+            holder.binding.cardView.setCardBackgroundColor(
+                ContextCompat.getColor(holder.itemView.context, R.color.available_green)
+            )
             holder.binding.tvStatus.text = "AVAIL"
         } else {
-            holder.binding.cardView.setCardBackgroundColor(Color.parseColor("#FFCDD2")) // Reddish
+            holder.binding.cardView.setCardBackgroundColor(
+                ContextCompat.getColor(holder.itemView.context, R.color.busy_red)
+            )
             holder.binding.tvStatus.text = "BUSY"
         }
 
@@ -61,9 +67,9 @@ class AvailabilityAdapter(
         val hour = parts[0].toIntOrNull() ?: 8
         val minute = parts[1].toIntOrNull() ?: 30
         
-        // Add 1 hour to start time
-        val endHour = if (minute + 30 >= 60) hour + 1 else hour
-        val endMinute = (minute + 30) % 60
+        val totalMinutes = hour * 60 + minute + 30
+        val endHour = totalMinutes / 60
+        val endMinute = totalMinutes % 60
         
         return String.format("%02d:%02d", endHour, endMinute)
     }

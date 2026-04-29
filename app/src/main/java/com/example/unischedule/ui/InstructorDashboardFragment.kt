@@ -14,6 +14,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.unischedule.R
 import com.example.unischedule.data.session.UserSession
 import com.example.unischedule.databinding.FragmentInstructorDashboardBinding
+import com.example.unischedule.util.StringUtil
 import com.example.unischedule.util.UiState
 import com.example.unischedule.viewmodel.FirestoreInstructorViewModel
 import com.example.unischedule.viewmodel.FirestoreInstructorViewModelFactory
@@ -39,7 +40,10 @@ class InstructorDashboardFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         val instructorId = UserSession.userId ?: return
-        binding.welcomeText.text = "Welcome, ${UserSession.userName ?: "Instructor"}"
+        
+        // Task 2: Welcome Message Formatting
+        val formattedName = StringUtil.formatUsername(UserSession.userName)
+        binding.welcomeText.text = "Welcome, $formattedName"
         
         viewModel.loadMySchedule(instructorId)
 
@@ -59,7 +63,7 @@ class InstructorDashboardFragment : Fragment() {
             findNavController().navigate(R.id.loginFragment)
         }
 
-        // Task 5: Navigation to calendar view
+        // Navigation to calendar view
         binding.root.findViewById<View>(R.id.btnViewCalendar)?.setOnClickListener {
             findNavController().navigate(R.id.action_instructorDashboardFragment_to_calendarFragment)
         }

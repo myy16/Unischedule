@@ -96,14 +96,29 @@ class MainActivity : AppCompatActivity() {
                 drawerLayout.setDrawerLockMode(DrawerLayout.LOCK_MODE_LOCKED_CLOSED)
             } else {
                 binding.toolbar.visibility = View.VISIBLE
-                // Only unlock drawer for Admin. Instructors don't have a drawer yet.
+                updateMenuVisibility(navView)
+                
                 if (UserSession.userRole == UserSession.Role.ADMIN) {
                     drawerLayout.setDrawerLockMode(DrawerLayout.LOCK_MODE_UNLOCKED)
                 } else {
+                    // Lock drawer for Lecturers too since they use a different UI or limited menu
                     drawerLayout.setDrawerLockMode(DrawerLayout.LOCK_MODE_LOCKED_CLOSED)
                 }
             }
         }
+    }
+
+    private fun updateMenuVisibility(navigationView: NavigationView) {
+        val menu = navigationView.menu
+        val isAdmin = UserSession.userRole == UserSession.Role.ADMIN
+        
+        // Admin-only items
+        menu.findItem(R.id.nav_resources)?.isVisible = isAdmin
+        menu.findItem(R.id.nav_courses)?.isVisible = isAdmin
+        menu.findItem(R.id.nav_scheduler)?.isVisible = isAdmin
+        
+        // Items visible to both or specific to Role
+        menu.findItem(R.id.nav_dashboard)?.isVisible = isAdmin
     }
 
     private suspend fun migrateRoomDataToFirestore() {
