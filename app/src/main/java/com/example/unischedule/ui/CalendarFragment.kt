@@ -6,6 +6,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.graphics.Color
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
@@ -13,6 +14,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
 import com.example.unischedule.R
+import com.example.unischedule.data.firestore.InstructorAvailability
 import com.example.unischedule.data.firestore.ScheduleEntry
 import com.example.unischedule.data.repository.FirestoreRepository
 import com.example.unischedule.data.session.UserSession
@@ -20,6 +22,8 @@ import com.example.unischedule.databinding.FragmentCalendarBinding
 import com.example.unischedule.util.UiState
 import com.example.unischedule.viewmodel.FirestoreLecturerCalendarViewModel
 import com.example.unischedule.viewmodel.FirestoreLecturerCalendarViewModelFactory
+import com.google.android.material.color.MaterialColors
+import com.google.android.material.snackbar.Snackbar
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
 
@@ -46,6 +50,8 @@ class CalendarFragment : Fragment() {
     private val timeSlots = listOf(
         "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00"
     )
+
+    private var currentAvailability: List<InstructorAvailability> = emptyList()
 
     private val daysOfWeek = listOf(
         Pair(1, "Mon"),
@@ -76,6 +82,7 @@ class CalendarFragment : Fragment() {
 
         // Collect schedule data and populate grid
         observeScheduleUpdates()
+        observeAvailabilityUpdates()
     }
 
     /**
@@ -202,7 +209,27 @@ class CalendarFragment : Fragment() {
                             binding.noClassesText.visibility = View.GONE
                             binding.errorText.visibility = View.VISIBLE
                             binding.errorText.text = "Error: ${state.message}"
+                            showRetrySnack()
                         }
+                    }
+                }
+            }
+        }
+    }
+
+    private fun observeAvailabilityUpdates() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.availabilityState.collect { state ->
+                    when (state) {
+                        is UiState.Success -> {
+                            currentAvailability = state.data
+                            refreshCalendarAvailability()
+                        }
+                        is UiState.Error -> {
+                            showRetrySnack()
+                        }
+                        else -> Unit
                     }
                 }
             }
@@ -231,6 +258,35 @@ class CalendarFragment : Fragment() {
 
             val courseCard = createCourseCard(schedule)
             cell.addView(courseCard)
+
+            // Mark schedule cell as busy/occupied when availability does not include this slot.
+            val isAvailable = currentAvailability.any { it.dayOfWeek == dayNum && it.startTime == startTime }
+            cell.setBackgroundColor(
+                MaterialColors.getColor(
+                    cell,
+                    if (isAvailable) com.google.android.material.R.attr.colorPrimaryContainer else com.google.android.material.R.attr.colorErrorContainer,
+                    if (isAvailable) Color.parseColor("#D9EAD3") else Color.parseColor("#F4CCCC")
+                )
+            )
+        }
+    }
+
+    private fun refreshCalendarAvailability() {
+        for ((dayNum, _) in daysOfWeek) {
+            for (timeSlot in timeSlots) {
+                val cellTag = "cell_${dayNum}_${timeSlot}"
+                val cell = binding.dayColumnsContainer.findViewWithTag<LinearLayout>(cellTag) ?: continue
+                val hasAvailability = currentAvailability.any { it.dayOfWeek == dayNum && it.startTime == timeSlot }
+                if (cell.childCount == 0) {
+                    cell.setBackgroundColor(
+                        MaterialColors.getColor(
+                            cell,
+                            if (hasAvailability) com.google.android.material.R.attr.colorPrimaryContainer else com.google.android.material.R.attr.colorErrorContainer,
+                            if (hasAvailability) Color.parseColor("#D9EAD3") else Color.parseColor("#F4CCCC")
+                        )
+                    )
+                }
+            }
         }
     }
 
@@ -303,6 +359,10 @@ class CalendarFragment : Fragment() {
         cardView.addView(timeView)
 
         return cardView
+    }
+
+    private fun showRetrySnack() {
+        Snackbar.make(binding.root, "Connection Error: Retrying...", Snackbar.LENGTH_SHORT).show()
     }
 
     override fun onDestroyView() {
