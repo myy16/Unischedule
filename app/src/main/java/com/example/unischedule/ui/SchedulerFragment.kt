@@ -12,14 +12,13 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.LinearLayoutManager
-import com.example.unischedule.data.database.UniversityDatabase
-import com.example.unischedule.data.entity.ScheduleWithDetails
-import com.example.unischedule.data.repository.UniversityRepository
+import com.example.unischedule.data.firestore.ScheduleEntry
 import com.example.unischedule.databinding.FragmentSchedulerBinding
 import com.example.unischedule.util.ExcelHelper
 import com.example.unischedule.util.UiState
-import com.example.unischedule.viewmodel.ScheduleViewModel
-import com.example.unischedule.viewmodel.ViewModelFactory
+import com.example.unischedule.viewmodel.FirestoreScheduleListViewModel
+import com.example.unischedule.viewmodel.FirestoreScheduleListViewModelFactory
+import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
 
 class SchedulerFragment : Fragment() {
@@ -27,9 +26,8 @@ class SchedulerFragment : Fragment() {
     private var _binding: FragmentSchedulerBinding? = null
     private val binding get() = _binding!!
 
-    private val viewModel: ScheduleViewModel by viewModels {
-        val db = UniversityDatabase.getDatabase(requireContext(), lifecycleScope)
-        ViewModelFactory(UniversityRepository(db.universityDao()))
+    private val viewModel: FirestoreScheduleListViewModel by viewModels {
+        FirestoreScheduleListViewModelFactory.create(FirebaseFirestore.getInstance())
     }
 
     private lateinit var scheduleAdapter: ScheduleAdapter
@@ -42,8 +40,8 @@ class SchedulerFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        scheduleAdapter = ScheduleAdapter { scheduleWithDetails ->
-            showScheduleOptions(scheduleWithDetails)
+        scheduleAdapter = ScheduleAdapter { scheduleEntry ->
+            showScheduleOptions(scheduleEntry)
         }
         
         binding.schedulerRecyclerView.apply {
@@ -61,7 +59,7 @@ class SchedulerFragment : Fragment() {
 
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.scheduleDetailsState.collect { state ->
+                viewModel.scheduleState.collect { state ->
                     if (state is UiState.Success) {
                         scheduleAdapter.updateItems(state.data)
                     }
@@ -70,10 +68,10 @@ class SchedulerFragment : Fragment() {
         }
     }
 
-    private fun showScheduleOptions(item: ScheduleWithDetails) {
+    private fun showScheduleOptions(item: ScheduleEntry) {
         val options = arrayOf("Edit (Not Implemented)", "Delete")
         AlertDialog.Builder(requireContext())
-            .setTitle("${item.course.code}: ${item.course.name}")
+            .setTitle("Schedule #${item.id}")
             .setItems(options) { _, which ->
                 when (which) {
                     0 -> Toast.makeText(context, "Edit feature coming soon", Toast.LENGTH_SHORT).show()
@@ -83,12 +81,12 @@ class SchedulerFragment : Fragment() {
             .show()
     }
 
-    private fun confirmDelete(item: ScheduleWithDetails) {
+    private fun confirmDelete(item: ScheduleEntry) {
         AlertDialog.Builder(requireContext())
             .setTitle("Delete Schedule")
             .setMessage("Are you sure you want to delete this class entry?")
             .setPositiveButton("Delete") { _, _ ->
-                viewModel.deleteSchedule(item.schedule)
+                viewModel.deleteSchedule(item.id.toString())
                 Toast.makeText(context, "Schedule deleted", Toast.LENGTH_SHORT).show()
             }
             .setNegativeButton("Cancel", null)

@@ -12,22 +12,20 @@ import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.unischedule.R
-import com.example.unischedule.data.database.UniversityDatabase
-import com.example.unischedule.data.repository.UniversityRepository
 import com.example.unischedule.data.session.UserSession
 import com.example.unischedule.databinding.FragmentInstructorDashboardBinding
 import com.example.unischedule.util.UiState
-import com.example.unischedule.viewmodel.InstructorViewModel
-import com.example.unischedule.viewmodel.ViewModelFactory
+import com.example.unischedule.viewmodel.FirestoreInstructorViewModel
+import com.example.unischedule.viewmodel.FirestoreInstructorViewModelFactory
+import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
 
 class InstructorDashboardFragment : Fragment() {
     private var _binding: FragmentInstructorDashboardBinding? = null
     private val binding get() = _binding!!
 
-    private val viewModel: InstructorViewModel by viewModels {
-        val database = UniversityDatabase.getDatabase(requireContext(), lifecycleScope)
-        ViewModelFactory(UniversityRepository(database.universityDao()))
+    private val viewModel: FirestoreInstructorViewModel by viewModels {
+        FirestoreInstructorViewModelFactory.create(FirebaseFirestore.getInstance())
     }
 
     private lateinit var scheduleAdapter: ScheduleAdapter

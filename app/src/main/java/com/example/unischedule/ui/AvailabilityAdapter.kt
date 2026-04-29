@@ -4,11 +4,11 @@ import android.graphics.Color
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
-import com.example.unischedule.data.entity.InstructorAvailability
+import com.example.unischedule.data.firestore.InstructorAvailability
 import com.example.unischedule.databinding.ItemAvailabilitySlotBinding
 
 class AvailabilityAdapter(
-    private val onSlotClick: (Int, String) -> Unit
+    private val onSlotClick: (Int, String, String) -> Unit
 ) : RecyclerView.Adapter<AvailabilityAdapter.ViewHolder>() {
 
     private var availabilities: List<InstructorAvailability> = emptyList()
@@ -36,12 +36,11 @@ class AvailabilityAdapter(
         val day = dayIndex + 1
         val time = slots[slotIndex]
 
-        // Only show time, day is in header
         holder.binding.tvTime.text = time
         
-        val isAvailable = availabilities.any { it.dayOfWeek == day && it.startTime == time }
+        val availability = availabilities.find { it.dayOfWeek == day && it.startTime == time }
         
-        if (isAvailable) {
+        if (availability != null) {
             holder.binding.cardView.setCardBackgroundColor(Color.parseColor("#C8E6C9")) // Greenish
             holder.binding.tvStatus.text = "AVAIL"
         } else {
@@ -50,9 +49,22 @@ class AvailabilityAdapter(
         }
 
         holder.itemView.setOnClickListener {
-            onSlotClick(day, time)
+            val endTime = availability?.endTime ?: calculateEndTime(time)
+            onSlotClick(day, time, endTime)
         }
     }
 
     override fun getItemCount(): Int = 5 * slots.size
+
+    private fun calculateEndTime(startTime: String): String {
+        val parts = startTime.split(":")
+        val hour = parts[0].toIntOrNull() ?: 8
+        val minute = parts[1].toIntOrNull() ?: 30
+        
+        // Add 1 hour to start time
+        val endHour = if (minute + 30 >= 60) hour + 1 else hour
+        val endMinute = (minute + 30) % 60
+        
+        return String.format("%02d:%02d", endHour, endMinute)
+    }
 }

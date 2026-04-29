@@ -3,12 +3,12 @@ package com.example.unischedule.ui
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
-import com.example.unischedule.data.entity.ScheduleWithDetails
+import com.example.unischedule.data.firestore.ScheduleEntry
 import com.example.unischedule.databinding.ItemResourceBinding
 
 class ScheduleAdapter(
-    private var items: List<ScheduleWithDetails> = emptyList(),
-    private val onItemClick: (ScheduleWithDetails) -> Unit
+    private var items: List<ScheduleEntry> = emptyList(),
+    private val onItemClick: (ScheduleEntry) -> Unit = {}
 ) : RecyclerView.Adapter<ScheduleAdapter.ViewHolder>() {
 
     class ViewHolder(val binding: ItemResourceBinding) : RecyclerView.ViewHolder(binding.root)
@@ -21,15 +21,14 @@ class ScheduleAdapter(
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         val item = items[position]
         
-        // Show actual names instead of IDs
-        holder.binding.titleText.text = "${item.course.code}: ${item.course.name}"
+        holder.binding.titleText.text = "Schedule #${item.id}"
         
         val subtitle = buildString {
-            append("${item.instructor.title} ${item.instructor.name}")
+            append("Lecturer: ${item.lecturerId}")
             append("\n")
-            append("${getDayName(item.schedule.dayOfWeek)} | ${item.schedule.startTime} - ${item.schedule.endTime}")
+            append("${getDayName(item.dayOfWeek)} | ${item.startTime} - ${item.endTime}")
             append("\n")
-            append("Room: ${item.classroom.name}")
+            append("Room: ${item.classroomId}")
         }
         holder.binding.subtitleText.text = subtitle
 
@@ -40,7 +39,7 @@ class ScheduleAdapter(
 
     override fun getItemCount(): Int = items.size
 
-    fun updateItems(newItems: List<ScheduleWithDetails>) {
+    fun updateItems(newItems: List<ScheduleEntry>) {
         items = newItems
         notifyDataSetChanged()
     }

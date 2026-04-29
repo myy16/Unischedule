@@ -10,22 +10,20 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.GridLayoutManager
-import com.example.unischedule.data.database.UniversityDatabase
-import com.example.unischedule.data.repository.UniversityRepository
 import com.example.unischedule.data.session.UserSession
 import com.example.unischedule.databinding.FragmentAvailabilityBinding
 import com.example.unischedule.util.UiState
-import com.example.unischedule.viewmodel.InstructorViewModel
-import com.example.unischedule.viewmodel.ViewModelFactory
+import com.example.unischedule.viewmodel.FirestoreInstructorViewModel
+import com.example.unischedule.viewmodel.FirestoreInstructorViewModelFactory
+import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
 
 class AvailabilityFragment : Fragment() {
     private var _binding: FragmentAvailabilityBinding? = null
     private val binding get() = _binding!!
 
-    private val viewModel: InstructorViewModel by viewModels {
-        val database = UniversityDatabase.getDatabase(requireContext(), lifecycleScope)
-        ViewModelFactory(UniversityRepository(database.universityDao()))
+    private val viewModel: FirestoreInstructorViewModel by viewModels {
+        FirestoreInstructorViewModelFactory.create(FirebaseFirestore.getInstance())
     }
 
     private lateinit var adapter: AvailabilityAdapter
@@ -41,8 +39,8 @@ class AvailabilityFragment : Fragment() {
         val instructorId = UserSession.userId ?: return
         viewModel.loadMyAvailability(instructorId)
 
-        adapter = AvailabilityAdapter { day, time ->
-            viewModel.toggleAvailability(instructorId, day, time)
+        adapter = AvailabilityAdapter { day, time, endTime ->
+            viewModel.toggleAvailability(instructorId, day, time, endTime)
         }
 
         binding.availabilityRecyclerView.layoutManager = GridLayoutManager(requireContext(), 5)

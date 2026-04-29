@@ -7,6 +7,7 @@ import com.example.unischedule.data.firestore.AdminAccount
 import com.example.unischedule.data.firestore.Classroom
 import com.example.unischedule.data.firestore.Course
 import com.example.unischedule.data.firestore.Faculty
+import com.example.unischedule.data.firestore.InstructorAvailability as FirestoreInstructorAvailability
 import com.example.unischedule.data.firestore.Lecturer
 import com.example.unischedule.data.firestore.ScheduleEntry
 import com.example.unischedule.data.session.UserSession
@@ -396,6 +397,74 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
             result.isEmpty
         } catch (e: Exception) {
             true  // Consider collection empty if we can't check (likely doesn't exist)
+        }
+    }
+
+    // Instructor Availability Firestore methods
+    fun observeInstructorAvailability(instructorId: Long): Flow<UiState<List<FirestoreInstructorAvailability>>> =
+        observeQuery(
+            db.collection("instructor_availability")
+                .whereEqualTo("instructorId", instructorId)
+                .orderBy("dayOfWeek")
+                .orderBy("startTime")
+        )
+
+    suspend fun toggleInstructorAvailability(
+        instructorId: Long,
+        dayOfWeek: Int,
+        startTime: String,
+        endTime: String
+    ) = withContext(Dispatchers.IO) {
+        try {
+            val query = db.collection("instructor_availability")
+                .whereEqualTo("instructorId", instructorId)
+                .whereEqualTo("dayOfWeek", dayOfWeek)
+                .whereEqualTo("startTime", startTime)
+                .limit(1)
+
+            val snapshot = query.get().await()
+
+            if (snapshot.isEmpty) {
+                // Add new availability slot
+                val docId = "${instructorId}_${dayOfWeek}_${startTime}"
+                db.collection("instructor_availability").document(docId).set(
+                    FirestoreInstructorAvailability(
+                        id = docId,
+                        instructorId = instructorId,
+                        dayOfWeek = dayOfWeek,
+                        startTime = startTime,
+                        endTime = endTime
+                    )
+                ).await()
+            } else {
+                // Remove existing availability slot
+                snapshot.documents.forEach { doc ->
+                    db.collection("instructor_availability").document(doc.id).delete().await()
+                }
+            }
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            throw e
+        }
+    }
+
+    suspend fun addInstructorAvailability(availability: FirestoreInstructorAvailability) = withContext(Dispatchers.IO) {
+        try {
+            val docId = "${availability.instructorId}_${availability.dayOfWeek}_${availability.startTime}"
+            db.collection("instructor_availability").document(docId).set(availability).await()
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            throw e
+        }
+    }
+
+    suspend fun deleteInstructorAvailability(instructorId: Long, dayOfWeek: Int, startTime: String) = withContext(Dispatchers.IO) {
+        try {
+            val docId = "${instructorId}_${dayOfWeek}_${startTime}"
+            db.collection("instructor_availability").document(docId).delete().await()
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            throw e
         }
     }
 }
