@@ -62,7 +62,7 @@ class BaseResourceListFragment : Fragment() {
                 0 -> AddFacultyBottomSheet().show(childFragmentManager, "AddFaculty")
                 1 -> AddDepartmentBottomSheet().show(childFragmentManager, "AddDepartment")
                 2 -> AddInstructorBottomSheet().show(childFragmentManager, "AddInstructor")
-                3 -> { /* Classroom dialog can be added if needed */ }
+                3 -> AddClassroomBottomSheet().show(childFragmentManager, "AddClassroom")
             }
         }
 

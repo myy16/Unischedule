@@ -49,20 +49,27 @@ class FirestoreAdminViewModel(private val repository: FirestoreRepository) : Vie
     }
 
     fun addFaculty(name: String) = viewModelScope.launch {
-        repository.addFaculty(Faculty(id = randomId(), name = name))
+        val nextId = repository.getNextIdForCollection("faculties")
+        repository.addFaculty(Faculty(id = nextId, name = name))
     }
 
     fun addDepartment(facultyId: Long, name: String) = viewModelScope.launch {
-        repository.addDepartment(Department(id = randomId(), facultyId = facultyId, name = name))
+        val nextId = repository.getNextIdForCollection("departments")
+        repository.addDepartment(Department(id = nextId, facultyId = facultyId, name = name))
     }
 
     fun addCourse(course: Course) = viewModelScope.launch {
-        repository.addCourse(course.copy(id = if (course.id == 0L) randomId() else course.id))
+        val nextId = if (course.id == 0L) repository.getNextIdForCollection("courses") else course.id
+        repository.addCourse(course.copy(id = nextId))
     }
 
     fun addClassroom(classroom: Classroom) = viewModelScope.launch {
-        repository.addClassroom(classroom.copy(id = if (classroom.id == 0L) randomId() else classroom.id))
+        val nextId = if (classroom.id == 0L) repository.getNextIdForCollection("classrooms") else classroom.id
+        repository.addClassroom(classroom.copy(id = nextId))
     }
 
-    private fun randomId(): Long = (1000L..9999L).random()
+    fun addLecturer(lecturer: Lecturer) = viewModelScope.launch {
+        val nextId = if (lecturer.id == 0L) repository.getNextIdForCollection("lecturers") else lecturer.id
+        repository.addLecturer(lecturer.copy(id = nextId))
+    }
 }

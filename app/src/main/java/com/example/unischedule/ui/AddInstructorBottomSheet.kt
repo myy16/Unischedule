@@ -10,6 +10,7 @@ import android.widget.Toast
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import androidx.fragment.app.viewModels
 import com.example.unischedule.data.firestore.Lecturer
 import com.example.unischedule.data.repository.FirestoreRepository
 import com.example.unischedule.databinding.BottomSheetAddInstructorBinding
@@ -22,8 +23,11 @@ class AddInstructorBottomSheet : BottomSheetDialogFragment() {
 
     private var _binding: BottomSheetAddInstructorBinding? = null
     private val binding get() = _binding!!
-    
     private val firestoreRepository by lazy { FirestoreRepository(FirebaseFirestore.getInstance()) }
+
+    private val viewModel: com.example.unischedule.viewmodel.FirestoreAdminViewModel by viewModels {
+        com.example.unischedule.viewmodel.FirestoreAdminViewModelFactory(firestoreRepository)
+    }
 
     private data class DepartmentSpinnerItem(
         val id: Long,
@@ -56,13 +60,14 @@ class AddInstructorBottomSheet : BottomSheetDialogFragment() {
             viewLifecycleOwner.lifecycleScope.launch {
                 try {
                     val lecturer = Lecturer(
-                        id = (1000L..9999L).random(),  // Generate random ID like departments
+                        id = 0L,  // Let ViewModel generate sequential ID
                         username = email.substringBefore("@"),  // Extract username from email
-                        passwordHash = "123456",  // Default password
+                        passwordHash = com.example.unischedule.util.PasswordHasher.sha256("123456"),  // Default secure password
                         fullName = if (title.isBlank()) name else "$title $name",
-                        departmentId = selectedDept.id
+                        departmentId = selectedDept.id,
+                        mustChangePassword = true // Require password change on first login
                     )
-                    firestoreRepository.addLecturer(lecturer)
+                    viewModel.addLecturer(lecturer)
                     Toast.makeText(context, "Lecturer added successfully", Toast.LENGTH_SHORT).show()
                     dismiss()
                 } catch (e: Exception) {

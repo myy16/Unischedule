@@ -248,6 +248,19 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
         }
     }
 
+    suspend fun getNextIdForCollection(collectionName: String): Long = withContext(Dispatchers.IO) {
+        try {
+            val snapshot = db.collection(collectionName).get().await()
+            if (snapshot.isEmpty) return@withContext 1L
+            val maxId = snapshot.documents.mapNotNull { it.id.toLongOrNull() }.maxOrNull()
+            if (maxId != null) maxId + 1L else 1L
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            // Fallback to random ID if fetch fails to avoid overwriting
+            (1000L..9999L).random()
+        }
+    }
+
     suspend fun addFaculty(faculty: Faculty) = withContext(Dispatchers.IO) {
         try {
             db.collection("faculties").document(faculty.id.toString()).set(faculty).await()
