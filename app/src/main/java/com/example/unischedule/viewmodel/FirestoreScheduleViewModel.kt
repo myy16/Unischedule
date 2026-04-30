@@ -30,7 +30,7 @@ class FirestoreScheduleViewModel(private val repository: FirestoreRepository) : 
     init {
         viewModelScope.launch { repository.observeCourses().collect { _coursesState.value = it } }
         viewModelScope.launch { repository.observeLecturers().collect { _lecturersState.value = it } }
-        viewModelScope.launch { repository.observeAvailableClassrooms().collect { _classroomsState.value = it } }
+        viewModelScope.launch { repository.observeClassrooms().collect { _classroomsState.value = it } }
     }
 
     fun tryAddSchedule(

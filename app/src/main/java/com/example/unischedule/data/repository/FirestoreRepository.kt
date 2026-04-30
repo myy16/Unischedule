@@ -395,6 +395,26 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
         }
     }
 
+    suspend fun getAdminById(adminId: Long): AdminAccount? = withContext(Dispatchers.IO) {
+        try {
+            db.collection("admins").document(adminId.toString())
+                .get().await()
+                .toObject(AdminAccount::class.java)
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            null
+        }
+    }
+
+    suspend fun updateAdminFields(adminId: Long, fields: Map<String, Any>) = withContext(Dispatchers.IO) {
+        try {
+            db.collection("admins").document(adminId.toString()).update(fields).await()
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            throw e
+        }
+    }
+
     suspend fun getDepartmentById(departmentId: Long): com.example.unischedule.data.firestore.Department? = withContext(Dispatchers.IO) {
         try {
             db.collection("departments").document(departmentId.toString())

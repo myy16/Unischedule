@@ -55,7 +55,10 @@ class MainActivity : AppCompatActivity() {
                 firestoreRepository.seedBaharKulogluLecturerIfMissing()
                 Log.d(TAG, "Lecturer seed completed")
                 
-                // Step 2: Migrate Room data to Firestore (one-time operation)
+                // Step 2: Seed admin user
+                seedAdminIfMissing()
+                
+                // Step 3: Migrate Room data to Firestore (one-time operation)
                 migrateRoomDataToFirestore()
                 
             } catch (e: Exception) {
@@ -147,6 +150,32 @@ class MainActivity : AppCompatActivity() {
 
         adminOnlyItems.forEach { itemId ->
             menu.findItem(itemId)?.isVisible = isAdmin
+        }
+    }
+
+    private suspend fun seedAdminIfMissing() {
+        try {
+            val db = FirebaseFirestore.getInstance()
+            val snapshot = db.collection("admins")
+                .limit(1)
+                .get()
+                .await()
+
+            if (snapshot.isEmpty) {
+                val adminObj = com.example.unischedule.data.firestore.AdminAccount(
+                    id = 1L,
+                    username = "admin",
+                    passwordHash = com.example.unischedule.util.PasswordHasher.sha256("Admin123"),
+                    role = "Admin",
+                    mustChangePassword = false
+                )
+                db.collection("admins").document("1").set(adminObj).await()
+                Log.d(TAG, "Admin created successfully")
+            } else {
+                Log.d(TAG, "Admins collection already has at least one admin. Skipping creation.")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error seeding admin", e)
         }
     }
 

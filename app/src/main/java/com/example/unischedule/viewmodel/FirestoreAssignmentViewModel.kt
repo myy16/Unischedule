@@ -34,7 +34,7 @@ class FirestoreAssignmentViewModel(private val repository: FirestoreRepository) 
             repository.observeLecturers().collect { _lecturersState.value = it }
         }
         viewModelScope.launch {
-            repository.observeAvailableClassrooms().collect { _classroomsState.value = it }
+            repository.observeClassrooms().collect { _classroomsState.value = it }
         }
     }
 

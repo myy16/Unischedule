@@ -37,6 +37,10 @@
     <item android:title="Account">
         <menu>
             <item
+                android:id="@id/passwordChangeFragment"
+                android:icon="@android:drawable/ic_menu_edit"
+                android:title="Change Password" />
+            <item
                 android:id="@+id/nav_logout"
                 android:icon="@android:drawable/ic_lock_power_off"
                 android:title="Logout" />

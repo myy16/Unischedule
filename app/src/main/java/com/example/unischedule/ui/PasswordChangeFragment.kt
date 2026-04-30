@@ -43,9 +43,10 @@ class PasswordChangeFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        // Block back button — password must be changed before continuing
-        requireActivity().onBackPressedDispatcher.addCallback(viewLifecycleOwner) {
-            Snackbar.make(binding.root, "Devam etmek için şifrenizi değiştirmelisiniz", Snackbar.LENGTH_SHORT).show()
+        if (UserSession.mustChangePassword(requireContext())) {
+            requireActivity().onBackPressedDispatcher.addCallback(viewLifecycleOwner) {
+                Snackbar.make(binding.root, "Devam etmek için şifrenizi değiştirmelisiniz", Snackbar.LENGTH_SHORT).show()
+            }
         }
 
         binding.btnChangePassword.setOnClickListener {
@@ -73,13 +74,14 @@ class PasswordChangeFragment : Fragment() {
                 return@setOnClickListener
             }
 
-            val lecturerId = UserSession.userId
-            if (lecturerId == null) {
+            val userId = UserSession.userId
+            val role = UserSession.userRole
+            if (userId == null || role == null) {
                 showError("Oturum bulunamadı, tekrar giriş yapın")
                 return@setOnClickListener
             }
 
-            viewModel.changePassword(lecturerId, currentPass, newPass)
+            viewModel.changePassword(userId, currentPass, newPass, role)
         }
 
         // Observe state changes
@@ -104,7 +106,11 @@ class PasswordChangeFragment : Fragment() {
                             }
                             
                             viewModel.resetState()
-                            findNavController().navigate(R.id.action_passwordChangeFragment_to_instructorDashboardFragment)
+                            if (UserSession.userRole == UserSession.Role.ADMIN) {
+                                findNavController().navigate(R.id.nav_dashboard)
+                            } else {
+                                findNavController().navigate(R.id.action_passwordChangeFragment_to_instructorDashboardFragment)
+                            }
                         }
                         is UiState.Error -> {
                             binding.progressBar.visibility = View.GONE
