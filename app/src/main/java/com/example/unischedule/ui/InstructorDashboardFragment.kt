@@ -82,52 +82,48 @@ class InstructorDashboardFragment : Fragment() {
         }
 
         viewLifecycleOwner.lifecycleScope.launch {
-            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                
-                // Observe maps to update the adapter
-                launch {
-                    viewModel.courseMap.collect { map ->
-                        scheduleAdapter.updateLookups(map, viewModel.lecturerMap.value, viewModel.classroomMap.value)
-                    }
+            launch {
+                viewModel.courseMap.collect { map ->
+                    scheduleAdapter.updateLookups(map, viewModel.lecturerMap.value, viewModel.classroomMap.value)
                 }
-                launch {
-                    viewModel.lecturerMap.collect { map ->
-                        scheduleAdapter.updateLookups(viewModel.courseMap.value, map, viewModel.classroomMap.value)
-                    }
+            }
+            launch {
+                viewModel.lecturerMap.collect { map ->
+                    scheduleAdapter.updateLookups(viewModel.courseMap.value, map, viewModel.classroomMap.value)
                 }
-                launch {
-                    viewModel.classroomMap.collect { map ->
-                        scheduleAdapter.updateLookups(viewModel.courseMap.value, viewModel.lecturerMap.value, map)
-                    }
+            }
+            launch {
+                viewModel.classroomMap.collect { map ->
+                    scheduleAdapter.updateLookups(viewModel.courseMap.value, viewModel.lecturerMap.value, map)
                 }
+            }
 
-                launch {
-                    viewModel.scheduleState.collect { state ->
-                        when (state) {
-                            is UiState.Success -> {
-                                val schedules = state.data
-                                binding.weeklyCountText.text = "This week: ${schedules.size} courses"
-                                if (schedules.isEmpty()) {
-                                    binding.noClassesText.visibility = View.VISIBLE
-                                    binding.myScheduleRecyclerView.visibility = View.GONE
-                                } else {
-                                    binding.noClassesText.visibility = View.GONE
-                                    binding.myScheduleRecyclerView.visibility = View.VISIBLE
-                                    scheduleAdapter.updateItems(schedules)
-                                }
+            launch {
+                viewModel.scheduleState.collect { state ->
+                    when (state) {
+                        is UiState.Success -> {
+                            val schedules = state.data
+                            binding.weeklyCountText.text = "This week: ${schedules.size} courses"
+                            if (schedules.isEmpty()) {
+                                binding.noClassesText.visibility = View.VISIBLE
+                                binding.myScheduleRecyclerView.visibility = View.GONE
+                            } else {
+                                binding.noClassesText.visibility = View.GONE
+                                binding.myScheduleRecyclerView.visibility = View.VISIBLE
+                                scheduleAdapter.updateItems(schedules)
                             }
-                            is UiState.Loading -> {
-                                // Show loading (if we had a progress bar)
-                            }
-                            is UiState.Error -> {
-                                com.google.android.material.snackbar.Snackbar.make(
-                                    binding.root, 
-                                    "Failed to load course data. Please try again.", 
-                                    com.google.android.material.snackbar.Snackbar.LENGTH_LONG
-                                ).show()
-                            }
-                            else -> Unit
                         }
+                        is UiState.Loading -> {
+                            // Show loading (if we had a progress bar)
+                        }
+                        is UiState.Error -> {
+                            com.google.android.material.snackbar.Snackbar.make(
+                                binding.root, 
+                                "Failed to load course data. Please try again.", 
+                                com.google.android.material.snackbar.Snackbar.LENGTH_LONG
+                            ).show()
+                        }
+                        else -> Unit
                     }
                 }
             }

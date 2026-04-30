@@ -2,20 +2,21 @@ package com.example.unischedule.ui
 
 import android.graphics.Typeface
 import android.os.Bundle
+import android.text.Html
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.TextView
-import androidx.core.os.bundleOf
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
-import androidx.navigation.fragment.findNavController
 import com.example.unischedule.R
+import com.example.unischedule.data.firestore.Course
+import com.example.unischedule.data.firestore.Lecturer
 import com.example.unischedule.data.repository.FirestoreRepository
 import com.example.unischedule.databinding.FragmentDashboardBinding
 import com.example.unischedule.util.UiState
@@ -33,6 +34,10 @@ class DashboardFragment : Fragment() {
         FirestoreDashboardViewModelFactory(FirestoreRepository(FirebaseFirestore.getInstance()))
     }
 
+    private var isLecturersExpanded = false
+    private var isCoursesExpanded = false
+    private var isClassroomsExpanded = false
+
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = FragmentDashboardBinding.inflate(inflater, container, false)
         return binding.root
@@ -41,13 +46,23 @@ class DashboardFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        // Warning panel taps
+        // Expandable panel toggles
         binding.cardWarningLecturers.setOnClickListener {
-            // Navigate to Resource Management → Instructors tab (index 2)
-            findNavController().navigate(R.id.nav_resources, bundleOf("selectedTab" to 2))
+            isLecturersExpanded = !isLecturersExpanded
+            binding.listWarningLecturers.visibility = if (isLecturersExpanded) View.VISIBLE else View.GONE
+            binding.arrowWarningLecturers.animate().rotation(if (isLecturersExpanded) 180f else 0f).setDuration(200).start()
         }
+
         binding.cardWarningCourses.setOnClickListener {
-            findNavController().navigate(R.id.assignmentFragment)
+            isCoursesExpanded = !isCoursesExpanded
+            binding.listWarningCourses.visibility = if (isCoursesExpanded) View.VISIBLE else View.GONE
+            binding.arrowWarningCourses.animate().rotation(if (isCoursesExpanded) 180f else 0f).setDuration(200).start()
+        }
+
+        binding.cardWarningClassrooms.setOnClickListener {
+            isClassroomsExpanded = !isClassroomsExpanded
+            binding.listWarningClassrooms.visibility = if (isClassroomsExpanded) View.VISIBLE else View.GONE
+            binding.arrowWarningClassrooms.animate().rotation(if (isClassroomsExpanded) 180f else 0f).setDuration(200).start()
         }
 
         observeStats()
@@ -125,11 +140,17 @@ class DashboardFragment : Fragment() {
                     viewModel.unassignedLecturersState.collect { state ->
                         when (state) {
                             is UiState.Success -> {
-                                val count = state.data
+                                val count = state.data.size
                                 if (count > 0) {
                                     binding.cardWarningLecturers.visibility = View.VISIBLE
                                     binding.warningLecturersText.text =
                                         "$count lecturer${if (count != 1) "s" else ""} ha${if (count != 1) "ve" else "s"} no assigned courses"
+                                    
+                                    // Collapse on update and populate
+                                    isLecturersExpanded = false
+                                    binding.listWarningLecturers.visibility = View.GONE
+                                    binding.arrowWarningLecturers.rotation = 0f
+                                    populateLecturersList(state.data)
                                 } else {
                                     binding.cardWarningLecturers.visibility = View.GONE
                                 }
@@ -142,11 +163,16 @@ class DashboardFragment : Fragment() {
                     viewModel.unassignedCoursesState.collect { state ->
                         when (state) {
                             is UiState.Success -> {
-                                val count = state.data
+                                val count = state.data.size
                                 if (count > 0) {
                                     binding.cardWarningCourses.visibility = View.VISIBLE
                                     binding.warningCoursesText.text =
                                         "$count course${if (count != 1) "s" else ""} ha${if (count != 1) "ve" else "s"} no assigned classroom"
+
+                                    isCoursesExpanded = false
+                                    binding.listWarningCourses.visibility = View.GONE
+                                    binding.arrowWarningCourses.rotation = 0f
+                                    populateCoursesList(state.data)
                                 } else {
                                     binding.cardWarningCourses.visibility = View.GONE
                                 }
@@ -159,11 +185,16 @@ class DashboardFragment : Fragment() {
                     viewModel.fullyBookedClassroomsState.collect { state ->
                         when (state) {
                             is UiState.Success -> {
-                                val count = state.data
+                                val count = state.data.size
                                 if (count > 0) {
                                     binding.cardWarningClassrooms.visibility = View.VISIBLE
                                     binding.warningClassroomsText.text =
                                         "$count classroom${if (count != 1) "s" else ""} fully booked this week"
+
+                                    isClassroomsExpanded = false
+                                    binding.listWarningClassrooms.visibility = View.GONE
+                                    binding.arrowWarningClassrooms.rotation = 0f
+                                    populateClassroomsList(state.data)
                                 } else {
                                     binding.cardWarningClassrooms.visibility = View.GONE
                                 }
@@ -173,6 +204,86 @@ class DashboardFragment : Fragment() {
                     }
                 }
             }
+        }
+    }
+
+    private fun populateLecturersList(lecturers: List<Lecturer>) {
+        val container = binding.listWarningLecturers
+        container.removeAllViews()
+        for (lecturer in lecturers) {
+            val departmentName = viewModel.departmentMap[lecturer.departmentId] ?: "Department #${lecturer.departmentId}"
+            val row = LinearLayout(requireContext()).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(0, dp(6), 0, dp(6))
+            }
+            val titleView = TextView(requireContext()).apply {
+                text = "• ${lecturer.fullName}"
+                textSize = 14f
+                setTextColor(resources.getColor(R.color.dash_on_surface, null))
+            }
+            val deptView = TextView(requireContext()).apply {
+                text = departmentName
+                textSize = 12f
+                setTextColor(resources.getColor(R.color.dash_subtitle, null))
+                setPadding(dp(10), 0, 0, 0)
+            }
+            row.addView(titleView)
+            row.addView(deptView)
+            container.addView(row)
+        }
+    }
+
+    private fun populateCoursesList(courses: List<Course>) {
+        val container = binding.listWarningCourses
+        container.removeAllViews()
+        for (course in courses) {
+            val departmentName = viewModel.departmentMap[course.departmentId] ?: "Department #${course.departmentId}"
+            val row = LinearLayout(requireContext()).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(0, dp(6), 0, dp(6))
+            }
+            val titleView = TextView(requireContext()).apply {
+                text = Html.fromHtml("&#8226; <b>${course.code}</b> — ${course.name}", Html.FROM_HTML_MODE_COMPACT)
+                textSize = 14f
+                setTextColor(resources.getColor(R.color.dash_on_surface, null))
+            }
+            val deptView = TextView(requireContext()).apply {
+                text = departmentName
+                textSize = 12f
+                setTextColor(resources.getColor(R.color.dash_subtitle, null))
+                setPadding(dp(10), 0, 0, 0)
+            }
+            row.addView(titleView)
+            row.addView(deptView)
+            container.addView(row)
+        }
+    }
+
+    private fun populateClassroomsList(classrooms: List<FirestoreDashboardViewModel.FullyBookedClassroom>) {
+        val container = binding.listWarningClassrooms
+        container.removeAllViews()
+        for (item in classrooms) {
+            val classroom = viewModel.classroomMap[item.classroomId]
+            val roomName = classroom?.name ?: "Room #${item.classroomId}"
+            val roomType = if (classroom?.isLab == true) "Laboratory" else "Classroom"
+            val row = LinearLayout(requireContext()).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(0, dp(6), 0, dp(6))
+            }
+            val titleView = TextView(requireContext()).apply {
+                text = "• $roomName"
+                textSize = 14f
+                setTextColor(resources.getColor(R.color.dash_on_surface, null))
+            }
+            val detailsView = TextView(requireContext()).apply {
+                text = "$roomType — ${item.slotsFilled}/20 slots filled"
+                textSize = 12f
+                setTextColor(resources.getColor(R.color.dash_subtitle, null))
+                setPadding(dp(10), 0, 0, 0)
+            }
+            row.addView(titleView)
+            row.addView(detailsView)
+            container.addView(row)
         }
     }
 

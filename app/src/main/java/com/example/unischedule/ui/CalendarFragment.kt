@@ -49,8 +49,35 @@ class CalendarFragment : Fragment() {
     }
 
     private val timeSlots = listOf(
-        "08:00-10:00", "10:00-12:00", "13:00-15:00", "15:00-17:00"
+        "08:00-09:00", "09:00-10:00", "10:00-11:00", "11:00-12:00",
+        "12:00-13:00", "13:00-14:00", "14:00-15:00", "15:00-16:00", "16:00-17:00"
     )
+
+    private fun normalizeSlot(raw: String) = raw.trim().replace(" - ", "-").replace(" ", "")
+
+    private fun parseHour(time: String): Int {
+        return time.split(":")[0].toInt()
+    }
+
+    private fun formatHour(hour: Int): String {
+        return String.format("%02d:00", hour)
+    }
+
+    private fun getSlotsForEntry(timeSlot: String): List<String> {
+        val parts = timeSlot.split("-")
+        if (parts.size != 2) return emptyList()
+        val start = parts[0]
+        val end = parts[1]
+        val slots = mutableListOf<String>()
+        var current = parseHour(start)
+        val endHour = parseHour(end)
+        while (current < endHour) {
+            val next = current + 1
+            slots.add("${formatHour(current)}-${formatHour(next)}")
+            current++
+        }
+        return slots
+    }
 
     private var courseMap: Map<Long, Course> = emptyMap()
     private var classroomMap: Map<Long, Classroom> = emptyMap()
@@ -207,16 +234,22 @@ class CalendarFragment : Fragment() {
 
                 cell.removeAllViews()
 
-                // Find entry matching this exact day and time slot
-                val entry = allSchedules.find { 
-                    it.dayOfWeek == dayNum && 
-                    "${it.startTime}-${it.endTime}".replace(" - ", "-") == timeSlot 
+                val myEntry = allSchedules.find { entry ->
+                    entry.lecturerId == currentLecturerId &&
+                    entry.dayOfWeek == dayNum &&
+                    getSlotsForEntry(normalizeSlot("${entry.startTime}-${entry.endTime}")).contains(timeSlot)
+                }
+
+                val busyEntry = allSchedules.find { entry ->
+                    entry.lecturerId != currentLecturerId &&
+                    entry.dayOfWeek == dayNum &&
+                    getSlotsForEntry(normalizeSlot("${entry.startTime}-${entry.endTime}")).contains(timeSlot)
                 }
 
                 val state = when {
-                    entry == null -> CellState.AVAILABLE
-                    entry.lecturerId == currentLecturerId -> CellState.MY_COURSE
-                    else -> CellState.BUSY
+                    myEntry != null -> CellState.MY_COURSE
+                    busyEntry != null -> CellState.BUSY
+                    else -> CellState.AVAILABLE
                 }
 
                 when (state) {
@@ -224,7 +257,7 @@ class CalendarFragment : Fragment() {
                         cell.setBackgroundColor(Color.parseColor("#C8E6C9")) // Soft green
                         val tv = TextView(requireContext()).apply {
                             text = "Free"
-                            textSize = 10f
+                            textSize = 9f
                             setTextColor(Color.LTGRAY)
                             gravity = android.view.Gravity.CENTER
                         }
@@ -242,9 +275,9 @@ class CalendarFragment : Fragment() {
                     }
                     CellState.MY_COURSE -> {
                         cell.setBackgroundColor(Color.parseColor("#BBDEFB")) // Soft blue
-                        if (entry != null) {
-                            val course = courseMap[entry.courseId]
-                            val classroom = classroomMap[entry.classroomId]
+                        if (myEntry != null) {
+                            val course = courseMap[myEntry.courseId]
+                            val classroom = classroomMap[myEntry.classroomId]
                             
                             val tv = TextView(requireContext()).apply {
                                 text = buildString {
@@ -253,12 +286,12 @@ class CalendarFragment : Fragment() {
                                         append("\n")
                                         append(course.code)
                                     } else {
-                                        append("Course ${entry.courseId}")
+                                        append("Course ${myEntry.courseId}")
                                     }
                                     append("\n")
                                     append(classroom?.name ?: "Unknown Room")
                                 }
-                                textSize = 10f
+                                textSize = 9f
                                 setTypeface(null, Typeface.BOLD)
                                 setTextColor(Color.DKGRAY)
                                 gravity = android.view.Gravity.CENTER

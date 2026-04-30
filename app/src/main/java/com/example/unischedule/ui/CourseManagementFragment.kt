@@ -10,6 +10,8 @@ import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.ArrayAdapter
+import android.widget.Spinner
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
@@ -33,8 +35,11 @@ import com.example.unischedule.databinding.DialogEditCourseBinding
 import com.example.unischedule.databinding.FragmentCourseManagementBinding
 import com.example.unischedule.util.ExcelHelper
 import com.example.unischedule.util.UiState
+import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.chip.Chip
 import com.google.android.material.snackbar.Snackbar
+import com.google.android.material.switchmaterial.SwitchMaterial
+import com.google.android.material.textfield.TextInputEditText
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -119,8 +124,91 @@ class CourseManagementFragment : Fragment() {
             runWithStoragePermission { downloadSample() }
         }
 
+        // Add Course button
+        binding.fabAddCourse.setOnClickListener {
+            showAddCourseBottomSheet()
+        }
+
         observeData()
         buildFilterChips()
+    }
+
+    private fun showAddCourseBottomSheet() {
+        val bottomSheetDialog = BottomSheetDialog(requireContext())
+        val dialogView = layoutInflater.inflate(R.layout.bottom_sheet_add_course, null)
+        bottomSheetDialog.setContentView(dialogView)
+
+        val deptSpinner = dialogView.findViewById<Spinner>(R.id.departmentSpinner)
+        val etName = dialogView.findViewById<TextInputEditText>(R.id.etCourseName)
+        val etCode = dialogView.findViewById<TextInputEditText>(R.id.etCourseCode)
+        val yearSpinner = dialogView.findViewById<Spinner>(R.id.yearSpinner)
+        val semesterSpinner = dialogView.findViewById<Spinner>(R.id.semesterSpinner)
+        val switchMandatory = dialogView.findViewById<SwitchMaterial>(R.id.switchMandatory)
+        val btnSave = dialogView.findViewById<View>(R.id.btnSaveCourse)
+
+        // Populate departments
+        data class DeptItem(val id: Long, val name: String) { override fun toString() = name }
+        val deptItems = allDepartments.map { DeptItem(it.id, it.name) }
+        if (deptItems.isEmpty()) {
+            Toast.makeText(context, "No departments available", Toast.LENGTH_SHORT).show()
+            return
+        }
+        deptSpinner.adapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, deptItems)
+            .also { it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
+
+        // Populate Year
+        val years = listOf("1", "2", "3", "4")
+        yearSpinner.adapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, years)
+            .also { it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
+
+        // Populate Semester
+        val semesters = listOf("1", "2")
+        semesterSpinner.adapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, semesters)
+            .also { it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
+
+        btnSave.setOnClickListener {
+            val name = etName.text.toString().trim()
+            val code = etCode.text.toString().trim()
+            val dept = deptSpinner.selectedItem as? DeptItem
+
+            if (name.isEmpty() || code.isEmpty() || dept == null) {
+                Toast.makeText(context, "Please fill all fields", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            // Check for duplicate course code
+            val exists = allCourses.any { it.code.equals(code, ignoreCase = true) }
+            if (exists) {
+                Toast.makeText(context, "Course code already exists", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            val year = years[yearSpinner.selectedItemPosition].toInt()
+            val semester = semesters[semesterSpinner.selectedItemPosition].toInt()
+            val isMandatory = switchMandatory.isChecked
+
+            val newCourse = FirestoreCourse(
+                id = System.currentTimeMillis(),
+                code = code,
+                name = name,
+                departmentId = dept.id,
+                year = year,
+                semester = semester,
+                isMandatory = isMandatory
+            )
+
+            viewLifecycleOwner.lifecycleScope.launch {
+                try {
+                    firestoreRepository.addCourse(newCourse)
+                    bottomSheetDialog.dismiss()
+                    Snackbar.make(binding.root, "Course added successfully", Snackbar.LENGTH_SHORT).show()
+                } catch (e: Exception) {
+                    Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+
+        bottomSheetDialog.show()
     }
 
     // ─── Edit/Delete selection ───────────────────────────────────────────

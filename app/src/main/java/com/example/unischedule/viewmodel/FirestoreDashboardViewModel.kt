@@ -37,14 +37,15 @@ class FirestoreDashboardViewModel(private val repository: FirestoreRepository) :
     val totalClassroomsState: StateFlow<UiState<Int>> = _totalClassroomsState.asStateFlow()
 
     // ── SECTION 2: Warning counts ────────────────────────────────────────
-    private val _unassignedLecturersState = MutableStateFlow<UiState<Int>>(UiState.Loading)
-    val unassignedLecturersState: StateFlow<UiState<Int>> = _unassignedLecturersState.asStateFlow()
+    private val _unassignedLecturersState = MutableStateFlow<UiState<List<Lecturer>>>(UiState.Loading)
+    val unassignedLecturersState: StateFlow<UiState<List<Lecturer>>> = _unassignedLecturersState.asStateFlow()
 
-    private val _unassignedCoursesState = MutableStateFlow<UiState<Int>>(UiState.Loading)
-    val unassignedCoursesState: StateFlow<UiState<Int>> = _unassignedCoursesState.asStateFlow()
+    private val _unassignedCoursesState = MutableStateFlow<UiState<List<Course>>>(UiState.Loading)
+    val unassignedCoursesState: StateFlow<UiState<List<Course>>> = _unassignedCoursesState.asStateFlow()
 
-    private val _fullyBookedClassroomsState = MutableStateFlow<UiState<Int>>(UiState.Loading)
-    val fullyBookedClassroomsState: StateFlow<UiState<Int>> = _fullyBookedClassroomsState.asStateFlow()
+    data class FullyBookedClassroom(val classroomId: Long, val slotsFilled: Int)
+    private val _fullyBookedClassroomsState = MutableStateFlow<UiState<List<FullyBookedClassroom>>>(UiState.Loading)
+    val fullyBookedClassroomsState: StateFlow<UiState<List<FullyBookedClassroom>>> = _fullyBookedClassroomsState.asStateFlow()
 
     // ── SECTION 3: Recent activity ───────────────────────────────────────
     private val _recentActivityState = MutableStateFlow<UiState<List<RecentActivityItem>>>(UiState.Loading)
@@ -53,7 +54,8 @@ class FirestoreDashboardViewModel(private val repository: FirestoreRepository) :
     // Caches for cross-referencing
     private var lecturerMap: Map<Long, String> = emptyMap()
     private var courseMap: Map<Long, String> = emptyMap()
-    private var classroomMap: Map<Long, String> = emptyMap()
+    var classroomMap: Map<Long, Classroom> = emptyMap()
+    var departmentMap: Map<Long, String> = emptyMap()
     private var scheduleEntries: List<ScheduleEntry> = emptyList()
 
     private val firestore = com.google.firebase.firestore.FirebaseFirestore.getInstance()
@@ -80,9 +82,9 @@ class FirestoreDashboardViewModel(private val repository: FirestoreRepository) :
                 if (e2 != null) return@addSnapshotListener
                 
                 val assignedLecturerIds = schedulesSnap?.documents?.mapNotNull { it.getLong("lecturerId") }?.toSet() ?: emptySet()
-                val totalLecturers = lecturersSnap?.documents?.mapNotNull { it.getLong("id") } ?: emptyList()
-                val unassignedCount = totalLecturers.count { it !in assignedLecturerIds }
-                _unassignedLecturersState.value = UiState.Success(unassignedCount)
+                val totalLecturers = lecturersSnap?.toObjects(Lecturer::class.java) ?: emptyList()
+                val unassigned = totalLecturers.filter { it.id !in assignedLecturerIds }
+                _unassignedLecturersState.value = UiState.Success(unassigned)
             }.also { listeners.add(it) }
         }.also { listeners.add(it) }
 
@@ -93,9 +95,9 @@ class FirestoreDashboardViewModel(private val repository: FirestoreRepository) :
                 if (e2 != null) return@addSnapshotListener
                 
                 val assignedCourseIds = schedulesSnap?.documents?.mapNotNull { it.getLong("courseId") }?.toSet() ?: emptySet()
-                val totalCourses = coursesSnap?.documents?.mapNotNull { it.getLong("id") } ?: emptyList()
-                val unassignedCount = totalCourses.count { it !in assignedCourseIds }
-                _unassignedCoursesState.value = UiState.Success(unassignedCount)
+                val totalCourses = coursesSnap?.toObjects(Course::class.java) ?: emptyList()
+                val unassigned = totalCourses.filter { it.id !in assignedCourseIds }
+                _unassignedCoursesState.value = UiState.Success(unassigned)
             }.also { listeners.add(it) }
         }.also { listeners.add(it) }
 
@@ -104,8 +106,10 @@ class FirestoreDashboardViewModel(private val repository: FirestoreRepository) :
             if (e != null) return@addSnapshotListener
             val entries = schedulesSnap?.toObjects(ScheduleEntry::class.java) ?: emptyList()
             val slotsPerClassroom = entries.groupBy { it.classroomId }
-            val fullyBookedCount = slotsPerClassroom.count { (_, slots) -> slots.size >= 5 }
-            _fullyBookedClassroomsState.value = UiState.Success(fullyBookedCount)
+            val fullyBooked = slotsPerClassroom.filter { (_, slots) -> slots.size >= 5 }.map { 
+                FullyBookedClassroom(it.key, it.value.size)
+            }
+            _fullyBookedClassroomsState.value = UiState.Success(fullyBooked)
         }.also { listeners.add(it) }
     }
 
@@ -125,6 +129,13 @@ class FirestoreDashboardViewModel(private val repository: FirestoreRepository) :
     }
 
     private fun observeLookupData() {
+        viewModelScope.launch {
+            repository.observeDepartments().collect { state ->
+                if (state is UiState.Success) {
+                    departmentMap = state.data.associate { it.id to it.name }
+                }
+            }
+        }
         // Observe lecturers for name lookup
         viewModelScope.launch {
             repository.observeLecturers().collect { state ->
@@ -147,7 +158,7 @@ class FirestoreDashboardViewModel(private val repository: FirestoreRepository) :
         viewModelScope.launch {
             repository.observeClassrooms().collect { state ->
                 if (state is UiState.Success) {
-                    classroomMap = state.data.associate { it.id to it.name }
+                    classroomMap = state.data.associate { it.id to it }
                     buildRecentActivity()
                 }
             }
@@ -180,7 +191,7 @@ class FirestoreDashboardViewModel(private val repository: FirestoreRepository) :
             RecentActivityItem(
                 courseCode = courseMap[entry.courseId] ?: "Course #${entry.courseId}",
                 lecturerName = lecturerMap[entry.lecturerId] ?: "Lecturer #${entry.lecturerId}",
-                classroomName = classroomMap[entry.classroomId] ?: "Room #${entry.classroomId}",
+                classroomName = classroomMap[entry.classroomId]?.name ?: "Room #${entry.classroomId}",
                 dayLabel = dayNames[entry.dayOfWeek] ?: "Day ${entry.dayOfWeek}",
                 startTime = entry.startTime
             )

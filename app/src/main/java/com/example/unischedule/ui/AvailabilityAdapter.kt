@@ -41,23 +41,36 @@ class AvailabilityAdapter(
         
         val availability = availabilities.find { it.dayOfWeek == day && it.startTime == time }
         
-        // Task 3: Real-Time Toggle Colors
-        if (availability != null) {
-            holder.binding.cardView.setCardBackgroundColor(
-                ContextCompat.getColor(holder.itemView.context, R.color.available_green)
-            )
-            holder.binding.tvStatus.text = "AVAIL"
+        val isCellBusy = if (availability != null) {
+            if (availability.status != null) isBusy(availability.status) else false
         } else {
-            holder.binding.cardView.setCardBackgroundColor(
-                ContextCompat.getColor(holder.itemView.context, R.color.busy_red)
-            )
+            true
+        }
+        
+        if (!isCellBusy) {
+            holder.binding.cardView.setCardBackgroundColor(android.graphics.Color.parseColor("#4CAF50"))
+            holder.binding.tvStatus.text = "AVAIL"
+            holder.binding.tvStatus.setTextColor(android.graphics.Color.WHITE)
+            holder.binding.tvTime.setTextColor(android.graphics.Color.WHITE)
+        } else {
+            holder.binding.cardView.setCardBackgroundColor(android.graphics.Color.parseColor("#EF5350"))
             holder.binding.tvStatus.text = "BUSY"
+            holder.binding.tvStatus.setTextColor(android.graphics.Color.WHITE)
+            holder.binding.tvTime.setTextColor(android.graphics.Color.WHITE)
         }
 
         holder.itemView.setOnClickListener {
             val endTime = availability?.endTime ?: calculateEndTime(time)
             onSlotClick(day, time, endTime)
         }
+    }
+
+    private fun isBusy(status: Any?): Boolean = when (status) {
+        is Boolean -> status == false
+        is String -> status.toString().lowercase() in listOf("busy", "false", "0")
+        is Long -> status == 0L
+        is Double -> status == 0.0
+        else -> false
     }
 
     override fun getItemCount(): Int = 5 * slots.size

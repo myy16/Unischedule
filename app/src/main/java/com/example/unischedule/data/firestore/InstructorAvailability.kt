@@ -8,5 +8,6 @@ data class InstructorAvailability(
     var instructorId: Long = 0,
     var dayOfWeek: Int = 0,  // 1: Monday, 7: Sunday
     var startTime: String = "",  // "09:00"
-    var endTime: String = ""     // "11:00"
+    var endTime: String = "",     // "11:00"
+    var status: Any? = null
 )

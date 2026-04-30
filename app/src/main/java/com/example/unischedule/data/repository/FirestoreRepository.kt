@@ -635,12 +635,24 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
                         instructorId = instructorId,
                         dayOfWeek = dayOfWeek,
                         startTime = startTime,
-                        endTime = endTime
+                        endTime = endTime,
+                        status = true
                     )
                 ).await()
             } else {
-                // Remove existing availability slot
-                availabilityCollection.document(targetDoc.id).delete().await()
+                // Toggle existing availability slot
+                val currentStatus = targetDoc.get("status")
+                val isCurrentlyBusy = when (currentStatus) {
+                    is Boolean -> currentStatus == false
+                    is String -> currentStatus.toString().lowercase() in listOf("busy", "false", "0")
+                    is Long -> currentStatus == 0L
+                    is Double -> currentStatus == 0.0
+                    else -> false
+                }
+                
+                // If it was busy, make it available (true). If it was available, make it busy (false).
+                val newStatus = isCurrentlyBusy
+                availabilityCollection.document(targetDoc.id).update("status", newStatus).await()
             }
 
             val remainingSlots = availabilityCollection
