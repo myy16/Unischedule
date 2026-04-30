@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.unischedule.data.firestore.Classroom
 import com.example.unischedule.data.firestore.Course
 import com.example.unischedule.data.firestore.InstructorAvailability
+import com.example.unischedule.data.firestore.Lecturer
 import com.example.unischedule.data.firestore.ScheduleEntry
 import com.example.unischedule.data.repository.FirestoreRepository
 import com.example.unischedule.util.UiState
@@ -30,12 +31,15 @@ class FirestoreLecturerCalendarViewModel(
     private val _availabilityState = MutableStateFlow<UiState<List<InstructorAvailability>>>(UiState.Loading)
     val availabilityState: StateFlow<UiState<List<InstructorAvailability>>> = _availabilityState.asStateFlow()
 
-    // Phase 2: Course and Classroom lookup maps for resolving IDs to names
+    // Phase 2: Course, Classroom, and Lecturer lookup maps for resolving IDs to names
     private val _courseMap = MutableStateFlow<Map<Long, Course>>(emptyMap())
     val courseMap: StateFlow<Map<Long, Course>> = _courseMap.asStateFlow()
 
     private val _classroomMap = MutableStateFlow<Map<Long, Classroom>>(emptyMap())
     val classroomMap: StateFlow<Map<Long, Classroom>> = _classroomMap.asStateFlow()
+
+    private val _lecturerMap = MutableStateFlow<Map<Long, Lecturer>>(emptyMap())
+    val lecturerMap: StateFlow<Map<Long, Lecturer>> = _lecturerMap.asStateFlow()
 
     init {
         observeSchedule()
@@ -60,7 +64,7 @@ class FirestoreLecturerCalendarViewModel(
     }
 
     /**
-     * Phase 2: Load all courses and classrooms for ID-to-name resolution in calendar cells.
+     * Phase 2: Load all courses, classrooms, and lecturers for ID-to-name resolution in calendar cells.
      */
     private fun loadLookupData() {
         viewModelScope.launch {
@@ -74,6 +78,13 @@ class FirestoreLecturerCalendarViewModel(
             repository.observeClassrooms().collect { state ->
                 if (state is UiState.Success) {
                     _classroomMap.value = state.data.associateBy { it.id }
+                }
+            }
+        }
+        viewModelScope.launch {
+            repository.observeLecturers().collect { state ->
+                if (state is UiState.Success) {
+                    _lecturerMap.value = state.data.associateBy { it.id }
                 }
             }
         }

@@ -616,16 +616,17 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
         endTime: String
     ) = withContext(Dispatchers.IO) {
         try {
-            val query = db.collection("instructor_availability")
-                .whereEqualTo("instructorId", instructorId)
-                .whereEqualTo("dayOfWeek", dayOfWeek)
-                .whereEqualTo("startTime", startTime)
-                .limit(1)
-
-            val snapshot = query.get().await()
             val availabilityCollection = db.collection("instructor_availability")
+            val snapshot = availabilityCollection
+                .whereEqualTo("instructorId", instructorId)
+                .get().await()
 
-            if (snapshot.isEmpty) {
+            val targetDoc = snapshot.documents.firstOrNull {
+                it.getLong("dayOfWeek")?.toInt() == dayOfWeek &&
+                it.getString("startTime") == startTime
+            }
+
+            if (targetDoc == null) {
                 // Add new availability slot
                 val docId = "${instructorId}_${dayOfWeek}_${startTime}"
                 availabilityCollection.document(docId).set(
@@ -639,9 +640,7 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
                 ).await()
             } else {
                 // Remove existing availability slot
-                snapshot.documents.forEach { doc ->
-                    availabilityCollection.document(doc.id).delete().await()
-                }
+                availabilityCollection.document(targetDoc.id).delete().await()
             }
 
             val remainingSlots = availabilityCollection

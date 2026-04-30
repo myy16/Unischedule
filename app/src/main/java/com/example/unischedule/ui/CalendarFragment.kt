@@ -52,10 +52,13 @@ class CalendarFragment : Fragment() {
         )
     }
 
-    // Time slots: 9:00 AM to 5:30 PM, showing 30-minute rows for better schedule alignment.
+    private fun dpToPx(dp: Int): Int {
+        return (dp * resources.displayMetrics.density).toInt()
+    }
+
+    // Time slots matching the actual scheduling slots
     private val timeSlots = listOf(
-        "09:00", "09:30", "10:00", "10:30", "11:00", "11:30", "12:00", "12:30", "13:00",
-        "13:30", "14:00", "14:30", "15:00", "15:30", "16:00", "16:30", "17:00", "17:30"
+        "08:00-10:00", "10:00-12:00", "13:00-15:00", "15:00-17:00"
     )
 
     private var currentAvailability: List<InstructorAvailability> = emptyList()
@@ -108,7 +111,7 @@ class CalendarFragment : Fragment() {
     }
 
     /**
-     * Builds the left-side time slot column (9:00 to 17:00).
+     * Builds the left-side time slot column.
      */
     private fun buildTimeSlotColumn() {
         val timeSlotsList = binding.timeSlotsList
@@ -118,12 +121,12 @@ class CalendarFragment : Fragment() {
             val timeView = TextView(requireContext()).apply {
                 layoutParams = LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT,
-                    80
+                    dpToPx(100) // Increased height for 2-hour blocks
                 ).apply {
-                    setMargins(0, 0, 0, 1)
+                    setMargins(0, 0, 0, dpToPx(1))
                 }
-                text = timeSlot
-                textSize = 10f
+                text = timeSlot.replace("-", "\n")
+                textSize = 12f
                 gravity = android.view.Gravity.CENTER
                 setBackgroundResource(R.drawable.grid_border)
             }
@@ -142,23 +145,23 @@ class CalendarFragment : Fragment() {
             // Create column for each day
             val dayColumn = LinearLayout(requireContext()).apply {
                 layoutParams = LinearLayout.LayoutParams(
-                    120,
+                    dpToPx(120), // Wide enough for text
                     LinearLayout.LayoutParams.MATCH_PARENT
                 ).apply {
-                    setMargins(1, 0, 1, 0)
+                    setMargins(dpToPx(1), 0, dpToPx(1), 0)
                 }
                 orientation = LinearLayout.VERTICAL
                 tag = "day_$dayNum"
             }
 
-            // Day header
+            // Day header (matches the XML 'Time' header's 40dp height)
             val dayHeader = TextView(requireContext()).apply {
                 layoutParams = LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT,
-                    40
+                    dpToPx(40)
                 )
                 text = dayLabel
-                textSize = 12f
+                textSize = 14f
                 setTypeface(null, android.graphics.Typeface.BOLD)
                 gravity = android.view.Gravity.CENTER
                 setBackgroundColor(android.graphics.Color.LTGRAY)
@@ -170,14 +173,14 @@ class CalendarFragment : Fragment() {
                 val cellView = LinearLayout(requireContext()).apply {
                     layoutParams = LinearLayout.LayoutParams(
                         LinearLayout.LayoutParams.MATCH_PARENT,
-                        80
+                        dpToPx(100) // Matches time slot height
                     ).apply {
-                        setMargins(0, 0, 0, 1)
+                        setMargins(0, 0, 0, dpToPx(1))
                     }
                     orientation = LinearLayout.VERTICAL
                     setBackgroundResource(R.drawable.grid_border)
                     tag = "cell_${dayNum}_${timeSlot}"
-                    setPadding(4, 4, 4, 4)
+                    setPadding(dpToPx(4), dpToPx(4), dpToPx(4), dpToPx(4))
                 }
                 dayColumn.addView(cellView)
             }
@@ -186,10 +189,6 @@ class CalendarFragment : Fragment() {
         }
     }
 
-    /**
-     * Task 5: Observes real-time schedule updates using repeatOnLifecycle(STARTED).
-     * Sustainable coding: lifecycle-safe collection ensures no leaks when fragment is paused/destroyed.
-     */
     private fun observeScheduleUpdates() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -235,7 +234,7 @@ class CalendarFragment : Fragment() {
                     when (state) {
                         is UiState.Success -> {
                             currentAvailability = state.data
-                            refreshCalendarAvailability()
+                            refreshCalendarColors()
                         }
                         is UiState.Error -> {
                             showRetrySnack()
@@ -247,9 +246,6 @@ class CalendarFragment : Fragment() {
         }
     }
 
-    /**
-     * Phase 2: Observe course and classroom lookup data for resolving IDs to names.
-     */
     private fun observeLookupData() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -267,10 +263,6 @@ class CalendarFragment : Fragment() {
         }
     }
 
-    /**
-     * Populates calendar cells with course information from schedule entries.
-     * Maps each ScheduleEntry to the correct grid cell based on day of week and time slot.
-     */
     private fun populateCalendar(schedules: List<ScheduleEntry>) {
         // Clear previous course displays from all cells
         clearCoursesFromCells()
@@ -278,54 +270,48 @@ class CalendarFragment : Fragment() {
         // Place each schedule entry in its grid cell
         for (schedule in schedules) {
             val dayNum = schedule.dayOfWeek
-            val startTime = normalizeTimeSlot(schedule.startTime) ?: schedule.startTime
-            val cellTag = "cell_${dayNum}_${startTime}"
-            val cell = binding.dayColumnsContainer.findViewWithTag<LinearLayout>(cellTag) ?: continue
+            val slotString = "${schedule.startTime}-${schedule.endTime}"
+            val cellTag = "cell_${dayNum}_${slotString}"
+            val cell = binding.dayColumnsContainer.findViewWithTag<LinearLayout>(cellTag)
 
-            // Clear cell and add course card
-            cell.removeAllViews()
-
-            val courseCard = createCourseCard(schedule)
-            cell.addView(courseCard)
-
-            // Mark schedule cell as busy/occupied when availability does not include this slot.
-            val normalizedStart = normalizeTimeSlot(startTime) ?: startTime
-            val isAvailable = currentAvailability.any {
-                it.dayOfWeek == dayNum && normalizeTimeSlot(it.startTime) == normalizedStart
+            if (cell != null) {
+                cell.removeAllViews()
+                val courseCard = createCourseCard(schedule)
+                cell.addView(courseCard)
             }
-            cell.setBackgroundColor(
-                MaterialColors.getColor(
-                    cell,
-                    if (isAvailable) com.google.android.material.R.attr.colorPrimaryContainer else com.google.android.material.R.attr.colorErrorContainer,
-                    if (isAvailable) Color.parseColor("#D9EAD3") else Color.parseColor("#F4CCCC")
-                )
-            )
         }
+        
+        refreshCalendarColors()
     }
 
-    private fun refreshCalendarAvailability() {
+    private fun refreshCalendarColors() {
         for ((dayNum, _) in daysOfWeek) {
             for (timeSlot in timeSlots) {
                 val cellTag = "cell_${dayNum}_${timeSlot}"
                 val cell = binding.dayColumnsContainer.findViewWithTag<LinearLayout>(cellTag) ?: continue
-                val normalizedSlot = normalizeTimeSlot(timeSlot) ?: timeSlot
-                val hasAvailability = currentAvailability.any { it.dayOfWeek == dayNum && normalizeTimeSlot(it.startTime) == normalizedSlot }
-                if (cell.childCount == 0) {
-                    cell.setBackgroundColor(
-                        MaterialColors.getColor(
-                            cell,
-                            if (hasAvailability) com.google.android.material.R.attr.colorPrimaryContainer else com.google.android.material.R.attr.colorErrorContainer,
-                            if (hasAvailability) Color.parseColor("#D9EAD3") else Color.parseColor("#F4CCCC")
-                        )
-                    )
+                
+                val parts = timeSlot.split("-")
+                val startTime = if (parts.size == 2) parts[0] else timeSlot
+                val hasAvailability = currentAvailability.any { it.dayOfWeek == dayNum && it.startTime == startTime }
+                
+                val hasCourse = cell.childCount > 0
+
+                // ISSUE 2: Color coding
+                // Blue (#E3F2FD) for available (no course)
+                // Pink/Red (#FFEBEE) for busy (has course, or not available)
+                val bgColor = if (hasCourse) {
+                    Color.parseColor("#FFEBEE") // Busy
+                } else if (hasAvailability) {
+                    Color.parseColor("#E3F2FD") // Available
+                } else {
+                    Color.parseColor("#F5F5F5") // Not available, no course (Gray)
                 }
+                
+                cell.setBackgroundColor(bgColor)
             }
         }
     }
 
-    /**
-     * Clears all course information from calendar cells (resets to empty state).
-     */
     private fun clearCoursesFromCells() {
         for ((dayNum, _) in daysOfWeek) {
             for (timeSlot in timeSlots) {
@@ -337,28 +323,12 @@ class CalendarFragment : Fragment() {
         }
     }
 
-    private fun normalizeTimeSlot(rawTime: String): String? {
-        val normalized = rawTime.trim()
-        val patterns = listOf("H:mm", "HH:mm", "h:mm a", "hh:mm a")
-        for (pattern in patterns) {
-            try {
-                val parser = SimpleDateFormat(pattern, Locale.US).apply { isLenient = false }
-                val date: Date = parser.parse(normalized) ?: continue
-                return SimpleDateFormat("HH:mm", Locale.US).format(date)
-            } catch (e: ParseException) {
-                // Continue trying next format until one works
-            }
-        }
-        return null
-    }
-
     private fun setupLegend() {
         binding.calendarLegend.removeAllViews()
 
         val legendItems = listOf(
-            LegendItem("Scheduled", "#BBDEFB"),
-            LegendItem("Available", "#C8E6C9"),
-            LegendItem("Unavailable", "#F8BBD0")
+            LegendItem("Available 🔵", "#E3F2FD"),
+            LegendItem("Busy 🔴", "#FFEBEE")
         )
 
         for (item in legendItems) {
@@ -367,22 +337,22 @@ class CalendarFragment : Fragment() {
                     LinearLayout.LayoutParams.WRAP_CONTENT,
                     LinearLayout.LayoutParams.WRAP_CONTENT
                 ).apply {
-                    setMargins(0, 0, 16, 0)
+                    setMargins(0, 0, dpToPx(16), 0)
                 }
                 orientation = LinearLayout.HORIZONTAL
                 gravity = android.view.Gravity.CENTER_VERTICAL
             }
 
             val swatch = View(requireContext()).apply {
-                layoutParams = LinearLayout.LayoutParams(16, 16).apply {
-                    setMargins(0, 0, 8, 0)
+                layoutParams = LinearLayout.LayoutParams(dpToPx(16), dpToPx(16)).apply {
+                    setMargins(0, 0, dpToPx(8), 0)
                 }
                 setBackgroundColor(Color.parseColor(item.colorHex))
             }
 
             val label = TextView(requireContext()).apply {
                 text = item.text
-                textSize = 12f
+                textSize = 14f
                 setTextColor(Color.DKGRAY)
             }
 
@@ -394,10 +364,6 @@ class CalendarFragment : Fragment() {
 
     private data class LegendItem(val text: String, val colorHex: String)
 
-    /**
-     * Creates a course card view to display in a calendar cell.
-     * Shows course code, classroom, and time range.
-     */
     private fun createCourseCard(schedule: ScheduleEntry): View {
         val cardView = LinearLayout(requireContext()).apply {
             layoutParams = LinearLayout.LayoutParams(
@@ -405,51 +371,39 @@ class CalendarFragment : Fragment() {
                 LinearLayout.LayoutParams.MATCH_PARENT
             )
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(android.graphics.Color.parseColor("#E3F2FD"))
-            setPadding(4, 4, 4, 4)
+            // We use transparent background because the cell background dictates the color
+            setBackgroundColor(Color.TRANSPARENT) 
+            setPadding(0, dpToPx(4), 0, 0)
         }
 
-        // Course code
         val courseCodeView = TextView(requireContext()).apply {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
             )
             val course = courseMap[schedule.courseId]
-            text = course?.code ?: "Course ${schedule.courseId}"
-            textSize = 10f
+            text = if (course != null) "${course.name}\n${course.code}" else "Course ${schedule.courseId}"
+            textSize = 11f
             setTypeface(null, android.graphics.Typeface.BOLD)
             gravity = android.view.Gravity.CENTER
-            setTextColor(android.graphics.Color.DKGRAY)
+            setTextColor(Color.parseColor("#C62828")) // Dark red text for contrast
         }
         cardView.addView(courseCodeView)
 
-        // Classroom
         val classroomView = TextView(requireContext()).apply {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
-            )
+            ).apply {
+                setMargins(0, dpToPx(4), 0, 0)
+            }
             val classroom = classroomMap[schedule.classroomId]
-            text = classroom?.name ?: "Room ${schedule.classroomId}"
-            textSize = 9f
+            text = classroom?.name ?: "Unknown Room"
+            textSize = 10f
             gravity = android.view.Gravity.CENTER
-            setTextColor(android.graphics.Color.GRAY)
+            setTextColor(Color.DKGRAY)
         }
         cardView.addView(classroomView)
-
-        // Time range
-        val timeView = TextView(requireContext()).apply {
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-            text = "${schedule.startTime}-${schedule.endTime}"
-            textSize = 8f
-            gravity = android.view.Gravity.CENTER
-            setTextColor(android.graphics.Color.GRAY)
-        }
-        cardView.addView(timeView)
 
         return cardView
     }

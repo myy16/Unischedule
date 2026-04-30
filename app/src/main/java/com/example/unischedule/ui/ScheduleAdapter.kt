@@ -32,7 +32,7 @@ class ScheduleAdapter(
         // Title: Course name (resolved)
         val course = courseMap[item.courseId]
         holder.binding.titleText.text = if (course != null) {
-            "${course.code}: ${course.name}"
+            "${course.name} — ${course.code}"
         } else {
             "Course #${item.courseId}"
         }
@@ -42,7 +42,7 @@ class ScheduleAdapter(
         val lecturerName = formatLecturerName(lecturer)
         
         val classroom = classroomMap[item.classroomId]
-        val roomLabel = classroom?.name ?: "Room #${item.classroomId}"
+        val roomLabel = classroom?.name ?: "Unknown Room"
 
         val subtitle = buildString {
             append("Lecturer: $lecturerName")
