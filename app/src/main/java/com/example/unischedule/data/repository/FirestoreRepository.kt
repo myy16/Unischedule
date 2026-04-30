@@ -300,6 +300,20 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
     }
 
     // Department CRUD
+    suspend fun findDepartmentByName(name: String): com.example.unischedule.data.firestore.Department? = withContext(Dispatchers.IO) {
+        try {
+            val snapshot = db.collection("departments")
+                .whereEqualTo("name", name)
+                .limit(1)
+                .get().await()
+            if (snapshot.isEmpty) null
+            else snapshot.documents.first().toObject(com.example.unischedule.data.firestore.Department::class.java)
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            null
+        }
+    }
+
     suspend fun addDepartment(department: com.example.unischedule.data.firestore.Department) = withContext(Dispatchers.IO) {
         try {
             db.collection("departments").document(department.id.toString()).set(department).await()

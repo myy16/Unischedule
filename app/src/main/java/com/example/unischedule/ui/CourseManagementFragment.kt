@@ -25,7 +25,6 @@ import com.example.unischedule.R
 import com.example.unischedule.data.entity.Course as RoomCourse
 import com.example.unischedule.data.firestore.Course as FirestoreCourse
 import com.example.unischedule.data.firestore.Department
-import com.example.unischedule.data.firestore.Faculty
 import com.example.unischedule.data.firestore.Lecturer
 import com.example.unischedule.data.firestore.ScheduleEntry
 import com.example.unischedule.data.repository.FirestoreRepository
@@ -50,18 +49,16 @@ class CourseManagementFragment : Fragment() {
 
     // Raw data caches
     private var allCourses: List<FirestoreCourse> = emptyList()
-    private var allFaculties: List<Faculty> = emptyList()
     private var allDepartments: List<Department> = emptyList()
     private var allLecturers: List<Lecturer> = emptyList()
     private var allSchedules: List<ScheduleEntry> = emptyList()
 
-    // Filter state
-    private var selectedFacultyId: Long? = null
-    private var selectedFacultyName: String? = null
+    // Filter state — only fields that exist on Course documents
     private var selectedDepartmentId: Long? = null
     private var selectedDepartmentName: String? = null
-    private var selectedLecturerId: Long? = null
-    private var selectedLecturerName: String? = null
+    private var selectedYear: Int? = null
+    private var selectedSemester: Int? = null
+    private var mandatoryFilter: String = "All"  // "All", "Mandatory", "Elective"
 
     private val importLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
@@ -91,7 +88,7 @@ class CourseManagementFragment : Fragment() {
             return
         }
 
-        // 1A: Course item tap → Edit/Delete dialog
+        // Course item tap → Edit/Delete dialog
         courseAdapter = ResourceAdapter { resourceItem ->
             val course = resourceItem.originalObject as? FirestoreCourse
             if (course != null) {
@@ -112,12 +109,12 @@ class CourseManagementFragment : Fragment() {
             importLauncher.launch(Intent.createChooser(intent, "Select Excel File"))
         }
 
-        // 1C: Export button
+        // Export button
         binding.btnExportExcel.setOnClickListener {
             runWithStoragePermission { exportCourses() }
         }
 
-        // 1D: Download sample
+        // Download sample
         binding.btnDownloadSample.setOnClickListener {
             runWithStoragePermission { downloadSample() }
         }
@@ -126,7 +123,7 @@ class CourseManagementFragment : Fragment() {
         buildFilterChips()
     }
 
-    // ─── 1A: Edit/Delete selection ──────────────────────────────────────
+    // ─── Edit/Delete selection ───────────────────────────────────────────
     private fun showCourseActionDialog(course: FirestoreCourse) {
         val options = arrayOf("Edit", "Delete")
         AlertDialog.Builder(requireContext())
@@ -191,54 +188,57 @@ class CourseManagementFragment : Fragment() {
             .show()
     }
 
-    // ─── 1B: Cascading filter chips ─────────────────────────────────────
+    // ─── Filter chips (based on actual Course fields) ───────────────────
     private fun buildFilterChips() {
         val chipGroup = binding.filterChipGroup
         chipGroup.removeAllViews()
 
-        // Faculty chip
-        if (selectedFacultyName != null) {
-            chipGroup.addView(createActiveChip("Faculty: $selectedFacultyName") {
-                selectedFacultyId = null; selectedFacultyName = null
+        // 1. Department filter
+        if (selectedDepartmentName != null) {
+            chipGroup.addView(createActiveChip("Dept: $selectedDepartmentName") {
                 selectedDepartmentId = null; selectedDepartmentName = null
-                selectedLecturerId = null; selectedLecturerName = null
                 rebuildAndApply()
             })
         } else {
-            chipGroup.addView(createChip("Faculty ▾") { showFacultyPicker() })
+            chipGroup.addView(createChip("Department ▾") { showDepartmentPicker() })
         }
 
-        // Department chip (only if faculty selected)
-        if (selectedFacultyId != null) {
-            if (selectedDepartmentName != null) {
-                chipGroup.addView(createActiveChip("Dept: $selectedDepartmentName") {
-                    selectedDepartmentId = null; selectedDepartmentName = null
-                    selectedLecturerId = null; selectedLecturerName = null
-                    rebuildAndApply()
-                })
-            } else {
-                chipGroup.addView(createChip("Department ▾") { showDepartmentPicker() })
-            }
+        // 2. Year filter
+        if (selectedYear != null) {
+            chipGroup.addView(createActiveChip("Year: $selectedYear") {
+                selectedYear = null
+                rebuildAndApply()
+            })
+        } else {
+            chipGroup.addView(createChip("Year ▾") { showYearPicker() })
         }
 
-        // Instructor chip (only if department selected)
-        if (selectedDepartmentId != null) {
-            if (selectedLecturerName != null) {
-                chipGroup.addView(createActiveChip("Instructor: $selectedLecturerName") {
-                    selectedLecturerId = null; selectedLecturerName = null
-                    rebuildAndApply()
-                })
-            } else {
-                chipGroup.addView(createChip("Instructor ▾") { showLecturerPicker() })
-            }
+        // 3. Semester filter
+        if (selectedSemester != null) {
+            chipGroup.addView(createActiveChip("Sem: $selectedSemester") {
+                selectedSemester = null
+                rebuildAndApply()
+            })
+        } else {
+            chipGroup.addView(createChip("Semester ▾") { showSemesterPicker() })
+        }
+
+        // 4. Mandatory toggle
+        if (mandatoryFilter != "All") {
+            chipGroup.addView(createActiveChip(mandatoryFilter) {
+                mandatoryFilter = "All"
+                rebuildAndApply()
+            })
+        } else {
+            chipGroup.addView(createChip("Type ▾") { showMandatoryPicker() })
         }
 
         // Clear all
-        if (selectedFacultyId != null || selectedDepartmentId != null || selectedLecturerId != null) {
+        if (selectedDepartmentId != null || selectedYear != null || selectedSemester != null || mandatoryFilter != "All") {
             chipGroup.addView(createChip("✕ Clear") {
-                selectedFacultyId = null; selectedFacultyName = null
                 selectedDepartmentId = null; selectedDepartmentName = null
-                selectedLecturerId = null; selectedLecturerName = null
+                selectedYear = null; selectedSemester = null
+                mandatoryFilter = "All"
                 rebuildAndApply()
             })
         }
@@ -267,45 +267,47 @@ class CourseManagementFragment : Fragment() {
         }
     }
 
-    private fun showFacultyPicker() {
-        if (allFaculties.isEmpty()) { Toast.makeText(context, "No faculties loaded", Toast.LENGTH_SHORT).show(); return }
-        val names = allFaculties.map { it.name }.toTypedArray()
-        AlertDialog.Builder(requireContext())
-            .setTitle("Select Faculty")
-            .setItems(names) { _, which ->
-                val f = allFaculties[which]
-                selectedFacultyId = f.id; selectedFacultyName = f.name
-                selectedDepartmentId = null; selectedDepartmentName = null
-                selectedLecturerId = null; selectedLecturerName = null
-                rebuildAndApply()
-            }
-            .setNegativeButton("Cancel", null).show()
-    }
-
     private fun showDepartmentPicker() {
-        val filtered = allDepartments.filter { it.facultyId == selectedFacultyId }
-        if (filtered.isEmpty()) { Toast.makeText(context, "No departments in this faculty", Toast.LENGTH_SHORT).show(); return }
-        val names = filtered.map { it.name }.toTypedArray()
+        if (allDepartments.isEmpty()) { Toast.makeText(context, "No departments loaded", Toast.LENGTH_SHORT).show(); return }
+        val names = allDepartments.map { it.name }.toTypedArray()
         AlertDialog.Builder(requireContext())
-            .setTitle("Select Department")
+            .setTitle("Filter by Department")
             .setItems(names) { _, which ->
-                val d = filtered[which]
+                val d = allDepartments[which]
                 selectedDepartmentId = d.id; selectedDepartmentName = d.name
-                selectedLecturerId = null; selectedLecturerName = null
                 rebuildAndApply()
             }
             .setNegativeButton("Cancel", null).show()
     }
 
-    private fun showLecturerPicker() {
-        val filtered = allLecturers.filter { it.departmentId == selectedDepartmentId }
-        if (filtered.isEmpty()) { Toast.makeText(context, "No lecturers in this department", Toast.LENGTH_SHORT).show(); return }
-        val names = filtered.map { it.fullName.ifBlank { it.username } }.toTypedArray()
+    private fun showYearPicker() {
+        val years = arrayOf("1", "2", "3", "4")
         AlertDialog.Builder(requireContext())
-            .setTitle("Select Instructor")
-            .setItems(names) { _, which ->
-                val l = filtered[which]
-                selectedLecturerId = l.id; selectedLecturerName = l.fullName.ifBlank { l.username }
+            .setTitle("Filter by Year")
+            .setItems(years) { _, which ->
+                selectedYear = which + 1
+                rebuildAndApply()
+            }
+            .setNegativeButton("Cancel", null).show()
+    }
+
+    private fun showSemesterPicker() {
+        val semesters = arrayOf("Semester 1", "Semester 2")
+        AlertDialog.Builder(requireContext())
+            .setTitle("Filter by Semester")
+            .setItems(semesters) { _, which ->
+                selectedSemester = which + 1
+                rebuildAndApply()
+            }
+            .setNegativeButton("Cancel", null).show()
+    }
+
+    private fun showMandatoryPicker() {
+        val options = arrayOf("Mandatory", "Elective")
+        AlertDialog.Builder(requireContext())
+            .setTitle("Filter by Type")
+            .setItems(options) { _, which ->
+                mandatoryFilter = options[which]
                 rebuildAndApply()
             }
             .setNegativeButton("Cancel", null).show()
@@ -319,22 +321,25 @@ class CourseManagementFragment : Fragment() {
     private fun applyFilters() {
         var filtered = allCourses
 
-        // Filter by department (from faculty → department cascade)
-        if (selectedDepartmentId != null) {
-            filtered = filtered.filter { it.departmentId == selectedDepartmentId }
-        } else if (selectedFacultyId != null) {
-            // If faculty is selected but not a specific department, filter by all departments in that faculty
-            val deptIdsInFaculty = allDepartments.filter { it.facultyId == selectedFacultyId }.map { it.id }.toSet()
-            filtered = filtered.filter { it.departmentId in deptIdsInFaculty }
+        // Filter by departmentId (direct field on Course)
+        selectedDepartmentId?.let { deptId ->
+            filtered = filtered.filter { it.departmentId == deptId }
         }
 
-        // Filter by instructor: find courses assigned to this lecturer in schedules
-        if (selectedLecturerId != null) {
-            val courseIdsForLecturer = allSchedules
-                .filter { it.lecturerId == selectedLecturerId }
-                .map { it.courseId }
-                .toSet()
-            filtered = filtered.filter { it.id in courseIdsForLecturer }
+        // Filter by year
+        selectedYear?.let { year ->
+            filtered = filtered.filter { it.year == year }
+        }
+
+        // Filter by semester
+        selectedSemester?.let { sem ->
+            filtered = filtered.filter { it.semester == sem }
+        }
+
+        // Filter by mandatory/elective
+        when (mandatoryFilter) {
+            "Mandatory" -> filtered = filtered.filter { it.isMandatory }
+            "Elective" -> filtered = filtered.filter { !it.isMandatory }
         }
 
         updateResultCount(filtered.size, allCourses.size)
@@ -348,10 +353,13 @@ class CourseManagementFragment : Fragment() {
     }
 
     private fun displayCourses(courses: List<FirestoreCourse>) {
+        val deptMap = allDepartments.associate { it.id to it.name }
         val uiItems = courses.map {
+            val deptName = deptMap[it.departmentId] ?: ""
+            val deptLabel = if (deptName.isNotBlank()) "$deptName | " else ""
             ResourceItem(
                 title = "${it.code}: ${it.name}",
-                subtitle = "Year: ${it.year}, Sem: ${it.semester} | ${if (it.isMandatory) "Mandatory" else "Elective"}",
+                subtitle = "${deptLabel}Year: ${it.year}, Sem: ${it.semester} | ${if (it.isMandatory) "Mandatory" else "Elective"}",
                 id = it.id,
                 originalObject = it
             )
@@ -359,21 +367,20 @@ class CourseManagementFragment : Fragment() {
         courseAdapter.updateItems(uiItems)
     }
 
-    // ─── 1C: Export ─────────────────────────────────────────────────────
+    // ─── Export ──────────────────────────────────────────────────────────
     private fun exportCourses() {
         viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
             try {
                 // Build export rows from currently filtered courses
                 var filtered = allCourses
-                if (selectedDepartmentId != null) {
-                    filtered = filtered.filter { it.departmentId == selectedDepartmentId }
-                } else if (selectedFacultyId != null) {
-                    val deptIds = allDepartments.filter { it.facultyId == selectedFacultyId }.map { it.id }.toSet()
-                    filtered = filtered.filter { it.departmentId in deptIds }
+                selectedDepartmentId?.let { deptId ->
+                    filtered = filtered.filter { it.departmentId == deptId }
                 }
-                if (selectedLecturerId != null) {
-                    val courseIds = allSchedules.filter { it.lecturerId == selectedLecturerId }.map { it.courseId }.toSet()
-                    filtered = filtered.filter { it.id in courseIds }
+                selectedYear?.let { y -> filtered = filtered.filter { it.year == y } }
+                selectedSemester?.let { s -> filtered = filtered.filter { it.semester == s } }
+                when (mandatoryFilter) {
+                    "Mandatory" -> filtered = filtered.filter { it.isMandatory }
+                    "Elective" -> filtered = filtered.filter { !it.isMandatory }
                 }
 
                 val deptMap = allDepartments.associate { it.id to it.name }
@@ -404,7 +411,7 @@ class CourseManagementFragment : Fragment() {
         }
     }
 
-    // ─── 1D: Download sample ────────────────────────────────────────────
+    // ─── Download sample ────────────────────────────────────────────────
     private fun downloadSample() {
         viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
             try {
@@ -424,7 +431,6 @@ class CourseManagementFragment : Fragment() {
     // ─── Storage permission helper ──────────────────────────────────────
     private fun runWithStoragePermission(action: () -> Unit) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            // No permission needed on API 29+
             action()
         } else {
             if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED) {
@@ -457,25 +463,19 @@ class CourseManagementFragment : Fragment() {
                         }
                     }
                 }
-                // Observe faculties
-                launch {
-                    firestoreRepository.observeFaculties().collect { state ->
-                        if (state is UiState.Success) allFaculties = state.data
-                    }
-                }
-                // Observe departments
+                // Observe departments (for filter dropdown + display)
                 launch {
                     firestoreRepository.observeDepartments().collect { state ->
                         if (state is UiState.Success) allDepartments = state.data
                     }
                 }
-                // Observe lecturers
+                // Observe lecturers (for export)
                 launch {
                     firestoreRepository.observeLecturers().collect { state ->
                         if (state is UiState.Success) allLecturers = state.data
                     }
                 }
-                // Observe schedules (for instructor→course mapping and export)
+                // Observe schedules (for export — instructor/time/classroom resolution)
                 launch {
                     firestoreRepository.observeSchedules().collect { state ->
                         if (state is UiState.Success) allSchedules = state.data
@@ -485,27 +485,20 @@ class CourseManagementFragment : Fragment() {
         }
     }
 
+    // ─── Import with department resolution ──────────────────────────────
     private fun importDataFromExcel(uri: android.net.Uri) {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
                 val inputStream = requireContext().contentResolver.openInputStream(uri)
                 if (inputStream != null) {
-                    val importedRoomCourses = ExcelHelper.importCoursesFromExcel(inputStream)
-                    importedRoomCourses.forEach { roomCourse ->
-                        // Convert Room Course to Firestore Course
-                        val firestoreCourse = FirestoreCourse(
-                            id = (1000L..9999L).random(),
-                            departmentId = roomCourse.departmentId,
-                            code = roomCourse.code,
-                            name = roomCourse.name,
-                            year = roomCourse.year,
-                            semester = roomCourse.semester,
-                            isMandatory = roomCourse.isMandatory
-                        )
+                    val importedCourses = ExcelHelper.importCoursesWithDepartment(
+                        inputStream, firestoreRepository
+                    )
+                    importedCourses.forEach { firestoreCourse ->
                         firestoreRepository.addCourse(firestoreCourse)
                     }
                     withContext(Dispatchers.Main) {
-                        Toast.makeText(context, "Imported ${importedRoomCourses.size} courses", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, "Imported ${importedCourses.size} courses", Toast.LENGTH_SHORT).show()
                     }
                 }
             } catch (e: Exception) {

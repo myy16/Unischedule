@@ -57,8 +57,11 @@ class SchedulerFragment : Fragment() {
     private var allLecturers: List<Lecturer> = emptyList()
     private var allClassrooms: List<Classroom> = emptyList()
     private var allDepartments: List<Department> = emptyList()
+    private var allFaculties: List<Faculty> = emptyList()
 
-    // Filter state
+    // Filter state — cascading Faculty→Department→Instructor + Day + Time
+    private var filterFacultyId: Long? = null
+    private var filterFacultyName: String? = null
     private var filterDepartmentId: Long? = null
     private var filterDepartmentName: String? = null
     private var filterLecturerId: Long? = null
@@ -87,9 +90,7 @@ class SchedulerFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        scheduleAdapter = ScheduleAdapter { scheduleEntry ->
-            showScheduleOptions(scheduleEntry)
-        }
+        scheduleAdapter = ScheduleAdapter { entry -> showScheduleOptions(entry) }
 
         binding.schedulerRecyclerView.apply {
             layoutManager = LinearLayoutManager(context)
@@ -99,314 +100,257 @@ class SchedulerFragment : Fragment() {
         binding.fabAddSchedule.setOnClickListener {
             AddScheduleBottomSheet().show(childFragmentManager, "AddSchedule")
         }
-
-        // 2D: Export
-        binding.btnExportShare.setOnClickListener {
-            runWithStoragePermission { exportSchedule() }
-        }
-
-        // 2E: Download sample
-        binding.btnDownloadSample.setOnClickListener {
-            runWithStoragePermission { downloadSample() }
-        }
+        binding.btnExportShare.setOnClickListener { runWithStoragePermission { exportSchedule() } }
+        binding.btnDownloadSample.setOnClickListener { runWithStoragePermission { downloadSample() } }
 
         observeData()
         buildFilterChips()
     }
 
-    // ─── 2B: Edit/Delete ────────────────────────────────────────────────
+    // ─── Edit/Delete ────────────────────────────────────────────────────
     private fun showScheduleOptions(item: ScheduleEntry) {
         val courseName = courseMap[item.courseId]?.let { "${it.code}: ${it.name}" } ?: "Schedule #${item.id}"
-        val options = arrayOf("Edit", "Delete")
         AlertDialog.Builder(requireContext())
             .setTitle(courseName)
-            .setItems(options) { _, which ->
+            .setItems(arrayOf("Edit", "Delete")) { _, which ->
                 when (which) {
                     0 -> showEditScheduleDialog(item)
                     1 -> confirmDelete(item)
                 }
-            }
-            .show()
+            }.show()
     }
 
     private fun confirmDelete(item: ScheduleEntry) {
         AlertDialog.Builder(requireContext())
             .setTitle("Delete Schedule")
-            .setMessage("Are you sure you want to delete this schedule entry? This cannot be undone.")
+            .setMessage("Are you sure? This cannot be undone.")
             .setPositiveButton("Delete") { _, _ ->
                 viewModel.deleteSchedule(item.id.toString())
                 Snackbar.make(binding.root, "Schedule deleted", Snackbar.LENGTH_SHORT).show()
             }
-            .setNegativeButton("Cancel", null)
-            .show()
+            .setNegativeButton("Cancel", null).show()
     }
 
+    // 2C: Edit updates existing record (same document ID)
     private fun showEditScheduleDialog(entry: ScheduleEntry) {
-        val dialogView = LayoutInflater.from(requireContext()).inflate(
-            com.example.unischedule.R.layout.bottom_sheet_add_schedule, null
-        )
+        val dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.bottom_sheet_add_schedule, null)
+        val courseSpinner = dialogView.findViewById<Spinner>(R.id.courseSpinner)
+        val instructorSpinner = dialogView.findViewById<Spinner>(R.id.instructorSpinner)
+        val classroomSpinner = dialogView.findViewById<Spinner>(R.id.classroomSpinner)
+        val daySpinner = dialogView.findViewById<Spinner>(R.id.daySpinner)
+        val btnStart = dialogView.findViewById<com.google.android.material.button.MaterialButton>(R.id.btnStartTime)
+        val btnEnd = dialogView.findViewById<com.google.android.material.button.MaterialButton>(R.id.btnEndTime)
+        dialogView.findViewById<View>(R.id.assignButton)?.visibility = View.GONE
 
-        // Spinners
-        val courseSpinner = dialogView.findViewById<Spinner>(com.example.unischedule.R.id.courseSpinner)
-        val instructorSpinner = dialogView.findViewById<Spinner>(com.example.unischedule.R.id.instructorSpinner)
-        val classroomSpinner = dialogView.findViewById<Spinner>(com.example.unischedule.R.id.classroomSpinner)
-        val daySpinner = dialogView.findViewById<Spinner>(com.example.unischedule.R.id.daySpinner)
-        val btnStartTime = dialogView.findViewById<com.google.android.material.button.MaterialButton>(com.example.unischedule.R.id.btnStartTime)
-        val btnEndTime = dialogView.findViewById<com.google.android.material.button.MaterialButton>(com.example.unischedule.R.id.btnEndTime)
-        // Hide the assign button from the bottom sheet layout since dialog has its own buttons
-        dialogView.findViewById<View>(com.example.unischedule.R.id.assignButton)?.visibility = View.GONE
+        var editStart = entry.startTime
+        var editEnd = entry.endTime
 
-        var editStartTime = entry.startTime
-        var editEndTime = entry.endTime
+        data class SI(val id: Long, val label: String) { override fun toString() = label }
+        data class DI(val id: Int, val name: String) { override fun toString() = name }
 
-        // Course spinner
-        data class SpinnerItem(val id: Long, val label: String) { override fun toString() = label }
-        val courseItems = allCourses.map { SpinnerItem(it.id, "${it.code} - ${it.name}") }
-        courseSpinner.adapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, courseItems).also {
-            it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-        }
-        courseItems.indexOfFirst { it.id == entry.courseId }.let { if (it >= 0) courseSpinner.setSelection(it) }
+        // Populate spinners
+        val cItems = allCourses.map { SI(it.id, "${it.code} - ${it.name}") }
+        courseSpinner.adapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, cItems)
+            .also { it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
+        cItems.indexOfFirst { it.id == entry.courseId }.let { if (it >= 0) courseSpinner.setSelection(it) }
 
-        // Lecturer spinner
-        val lecturerItems = allLecturers.map { SpinnerItem(it.id, it.fullName.ifBlank { it.username }) }
-        instructorSpinner.adapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, lecturerItems).also {
-            it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-        }
-        lecturerItems.indexOfFirst { it.id == entry.lecturerId }.let { if (it >= 0) instructorSpinner.setSelection(it) }
+        val lItems = allLecturers.map { SI(it.id, it.fullName.ifBlank { it.username }) }
+        instructorSpinner.adapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, lItems)
+            .also { it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
+        lItems.indexOfFirst { it.id == entry.lecturerId }.let { if (it >= 0) instructorSpinner.setSelection(it) }
 
-        // Classroom spinner
-        val classroomItems = allClassrooms.map { SpinnerItem(it.id, it.name) }
-        classroomSpinner.adapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, classroomItems).also {
-            it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-        }
-        classroomItems.indexOfFirst { it.id == entry.classroomId }.let { if (it >= 0) classroomSpinner.setSelection(it) }
+        val rItems = allClassrooms.map { SI(it.id, it.name) }
+        classroomSpinner.adapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, rItems)
+            .also { it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
+        rItems.indexOfFirst { it.id == entry.classroomId }.let { if (it >= 0) classroomSpinner.setSelection(it) }
 
-        // Day spinner
-        data class DayItem(val id: Int, val name: String) { override fun toString() = name }
-        val days = listOf(DayItem(1,"Monday"),DayItem(2,"Tuesday"),DayItem(3,"Wednesday"),DayItem(4,"Thursday"),DayItem(5,"Friday"),DayItem(6,"Saturday"),DayItem(7,"Sunday"))
-        daySpinner.adapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, days).also {
-            it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-        }
+        val days = listOf(DI(1,"Monday"),DI(2,"Tuesday"),DI(3,"Wednesday"),DI(4,"Thursday"),DI(5,"Friday"),DI(6,"Saturday"),DI(7,"Sunday"))
+        daySpinner.adapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, days)
+            .also { it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
         days.indexOfFirst { it.id == entry.dayOfWeek }.let { if (it >= 0) daySpinner.setSelection(it) }
 
-        // Time buttons
-        btnStartTime.text = "Start: ${entry.startTime}"
-        btnEndTime.text = "End: ${entry.endTime}"
-        btnStartTime.setOnClickListener {
-            val cal = Calendar.getInstance()
+        btnStart.text = "Start: ${entry.startTime}"
+        btnEnd.text = "End: ${entry.endTime}"
+        btnStart.setOnClickListener {
+            val c = Calendar.getInstance()
             TimePickerDialog(requireContext(), { _, h, m ->
-                editStartTime = String.format("%02d:%02d", h, m)
-                btnStartTime.text = "Start: $editStartTime"
-            }, cal.get(Calendar.HOUR_OF_DAY), cal.get(Calendar.MINUTE), true).show()
+                editStart = String.format("%02d:%02d", h, m); btnStart.text = "Start: $editStart"
+            }, c.get(Calendar.HOUR_OF_DAY), c.get(Calendar.MINUTE), true).show()
         }
-        btnEndTime.setOnClickListener {
-            val cal = Calendar.getInstance()
+        btnEnd.setOnClickListener {
+            val c = Calendar.getInstance()
             TimePickerDialog(requireContext(), { _, h, m ->
-                editEndTime = String.format("%02d:%02d", h, m)
-                btnEndTime.text = "End: $editEndTime"
-            }, cal.get(Calendar.HOUR_OF_DAY), cal.get(Calendar.MINUTE), true).show()
+                editEnd = String.format("%02d:%02d", h, m); btnEnd.text = "End: $editEnd"
+            }, c.get(Calendar.HOUR_OF_DAY), c.get(Calendar.MINUTE), true).show()
         }
 
-        AlertDialog.Builder(requireContext())
-            .setTitle("Edit Schedule")
-            .setView(dialogView)
+        AlertDialog.Builder(requireContext()).setTitle("Edit Schedule").setView(dialogView)
             .setPositiveButton("Save") { _, _ ->
-                val selectedCourse = (courseSpinner.selectedItem as? SpinnerItem)?.id ?: entry.courseId
-                val selectedLecturer = (instructorSpinner.selectedItem as? SpinnerItem)?.id ?: entry.lecturerId
-                val selectedClassroom = (classroomSpinner.selectedItem as? SpinnerItem)?.id ?: entry.classroomId
-                val selectedDay = (daySpinner.selectedItem as? DayItem)?.id ?: entry.dayOfWeek
+                val selCourse = (courseSpinner.selectedItem as? SI)?.id ?: entry.courseId
+                val selLec = (instructorSpinner.selectedItem as? SI)?.id ?: entry.lecturerId
+                val selRoom = (classroomSpinner.selectedItem as? SI)?.id ?: entry.classroomId
+                val selDay = (daySpinner.selectedItem as? DI)?.id ?: entry.dayOfWeek
+                val course = courseMap[selCourse]
 
-                val course = courseMap[selectedCourse]
-                val updatedEntry = entry.copy(
-                    courseId = selectedCourse,
-                    lecturerId = selectedLecturer,
-                    classroomId = selectedClassroom,
-                    dayOfWeek = selectedDay,
-                    startTime = editStartTime,
-                    endTime = editEndTime,
+                // Keep the same ID → updateSchedule writes to the same document
+                val updated = entry.copy(
+                    courseId = selCourse, lecturerId = selLec, classroomId = selRoom,
+                    dayOfWeek = selDay, startTime = editStart, endTime = editEnd,
                     courseDepartmentId = course?.departmentId ?: entry.courseDepartmentId,
                     courseYear = course?.year ?: entry.courseYear,
                     courseIsMandatory = course?.isMandatory ?: entry.courseIsMandatory
                 )
 
-                // 2A: Conflict check (exclude current entry)
-                val conflict = viewModel.checkConflicts(updatedEntry, allSchedules, excludeId = entry.id)
+                val conflict = viewModel.checkConflicts(updated, allSchedules, excludeId = entry.id)
                 if (conflict != null) {
-                    AlertDialog.Builder(requireContext())
-                        .setTitle("Conflict Detected")
-                        .setMessage(conflict)
-                        .setPositiveButton("OK", null)
-                        .setIcon(android.R.drawable.ic_dialog_alert)
-                        .show()
+                    AlertDialog.Builder(requireContext()).setTitle("Conflict").setMessage(conflict)
+                        .setPositiveButton("OK", null).setIcon(android.R.drawable.ic_dialog_alert).show()
                 } else {
-                    viewModel.updateSchedule(updatedEntry)
+                    viewModel.updateSchedule(updated)
                     Snackbar.make(binding.root, "Schedule updated", Snackbar.LENGTH_SHORT).show()
                 }
             }
-            .setNegativeButton("Cancel", null)
-            .show()
+            .setNegativeButton("Cancel", null).show()
     }
 
-    // ─── 2C: Filter chips ───────────────────────────────────────────────
+    // ─── Cascading filter: Faculty → Department → Instructor + Day + Time ─
     private fun buildFilterChips() {
-        val chipGroup = binding.filterChipGroup
-        chipGroup.removeAllViews()
+        val cg = binding.filterChipGroup
+        cg.removeAllViews()
 
-        // Department
-        if (filterDepartmentName != null) {
-            chipGroup.addView(createActiveChip("Dept: $filterDepartmentName") {
+        // Faculty
+        if (filterFacultyName != null) {
+            cg.addView(activeChip("Faculty: $filterFacultyName") {
+                filterFacultyId = null; filterFacultyName = null
                 filterDepartmentId = null; filterDepartmentName = null
-                filterLecturerId = null; filterLecturerName = null
-                rebuildAndApply()
+                filterLecturerId = null; filterLecturerName = null; rebuildAndApply()
             })
-        } else {
-            chipGroup.addView(createChip("Department ▾") { showDeptPicker() })
+        } else { cg.addView(chip("Faculty ▾") { pickFaculty() }) }
+
+        // Department (only when faculty selected)
+        if (filterFacultyId != null) {
+            if (filterDepartmentName != null) {
+                cg.addView(activeChip("Dept: $filterDepartmentName") {
+                    filterDepartmentId = null; filterDepartmentName = null
+                    filterLecturerId = null; filterLecturerName = null; rebuildAndApply()
+                })
+            } else { cg.addView(chip("Department ▾") { pickDepartment() }) }
         }
 
-        // Instructor (only if department selected)
+        // Instructor (only when department selected)
         if (filterDepartmentId != null) {
             if (filterLecturerName != null) {
-                chipGroup.addView(createActiveChip("Instructor: $filterLecturerName") {
-                    filterLecturerId = null; filterLecturerName = null
-                    rebuildAndApply()
+                cg.addView(activeChip("Instructor: $filterLecturerName") {
+                    filterLecturerId = null; filterLecturerName = null; rebuildAndApply()
                 })
-            } else {
-                chipGroup.addView(createChip("Instructor ▾") { showInstructorPicker() })
-            }
+            } else { cg.addView(chip("Instructor ▾") { pickInstructor() }) }
         }
 
         // Day
         if (filterDayName != null) {
-            chipGroup.addView(createActiveChip("Day: $filterDayName") {
-                filterDay = null; filterDayName = null
-                rebuildAndApply()
-            })
-        } else {
-            chipGroup.addView(createChip("Day ▾") { showDayPicker() })
-        }
+            cg.addView(activeChip("Day: $filterDayName") { filterDay = null; filterDayName = null; rebuildAndApply() })
+        } else { cg.addView(chip("Day ▾") { pickDay() }) }
 
-        // Time slot
+        // Time
         if (filterTimeSlot != null) {
-            chipGroup.addView(createActiveChip("Time: $filterTimeSlot") {
-                filterTimeSlot = null
-                rebuildAndApply()
-            })
-        } else {
-            chipGroup.addView(createChip("Time ▾") { showTimePicker() })
-        }
+            cg.addView(activeChip("Time: $filterTimeSlot") { filterTimeSlot = null; rebuildAndApply() })
+        } else { cg.addView(chip("Time ▾") { pickTime() }) }
 
         // Clear
-        if (filterDepartmentId != null || filterLecturerId != null || filterDay != null || filterTimeSlot != null) {
-            chipGroup.addView(createChip("✕ Clear") {
+        val anyActive = filterFacultyId != null || filterDepartmentId != null || filterLecturerId != null || filterDay != null || filterTimeSlot != null
+        if (anyActive) {
+            cg.addView(chip("✕ Clear") {
+                filterFacultyId = null; filterFacultyName = null
                 filterDepartmentId = null; filterDepartmentName = null
                 filterLecturerId = null; filterLecturerName = null
-                filterDay = null; filterDayName = null
-                filterTimeSlot = null
+                filterDay = null; filterDayName = null; filterTimeSlot = null
                 rebuildAndApply()
             })
         }
     }
 
-    private fun createChip(label: String, onClick: () -> Unit): Chip {
-        return Chip(requireContext()).apply {
-            text = label; isCheckable = false; isClickable = true
-            setChipBackgroundColorResource(R.color.white)
-            setTextColor(resources.getColor(R.color.navy_blue, null))
-            chipStrokeWidth = 2f; setChipStrokeColorResource(R.color.navy_blue)
-            setOnClickListener { onClick() }
-        }
+    private fun chip(label: String, onClick: () -> Unit) = Chip(requireContext()).apply {
+        text = label; isCheckable = false; isClickable = true
+        setChipBackgroundColorResource(R.color.white)
+        setTextColor(resources.getColor(R.color.navy_blue, null))
+        chipStrokeWidth = 2f; setChipStrokeColorResource(R.color.navy_blue)
+        setOnClickListener { onClick() }
     }
 
-    private fun createActiveChip(label: String, onClick: () -> Unit): Chip {
-        return Chip(requireContext()).apply {
-            text = label; isCheckable = false; isClickable = true
-            setChipBackgroundColorResource(R.color.navy_blue)
-            setTextColor(resources.getColor(R.color.white, null))
-            isCloseIconVisible = true; setCloseIconTintResource(R.color.white)
-            setOnCloseIconClickListener { onClick() }
-            setOnClickListener { onClick() }
-        }
+    private fun activeChip(label: String, onClick: () -> Unit) = Chip(requireContext()).apply {
+        text = label; isCheckable = false; isClickable = true
+        setChipBackgroundColorResource(R.color.navy_blue)
+        setTextColor(resources.getColor(R.color.white, null))
+        isCloseIconVisible = true; setCloseIconTintResource(R.color.white)
+        setOnCloseIconClickListener { onClick() }; setOnClickListener { onClick() }
     }
 
-    private fun showDeptPicker() {
-        if (allDepartments.isEmpty()) { Toast.makeText(context, "No departments loaded", Toast.LENGTH_SHORT).show(); return }
-        val names = allDepartments.map { it.name }.toTypedArray()
-        AlertDialog.Builder(requireContext())
-            .setTitle("Filter by Department")
-            .setItems(names) { _, which ->
-                val d = allDepartments[which]
-                filterDepartmentId = d.id; filterDepartmentName = d.name
-                filterLecturerId = null; filterLecturerName = null
-                rebuildAndApply()
-            }.setNegativeButton("Cancel", null).show()
+    private fun pickFaculty() {
+        if (allFaculties.isEmpty()) { Toast.makeText(context, "No faculties loaded", Toast.LENGTH_SHORT).show(); return }
+        val n = allFaculties.map { it.name }.toTypedArray()
+        AlertDialog.Builder(requireContext()).setTitle("Select Faculty").setItems(n) { _, w ->
+            val f = allFaculties[w]
+            filterFacultyId = f.id; filterFacultyName = f.name
+            filterDepartmentId = null; filterDepartmentName = null
+            filterLecturerId = null; filterLecturerName = null; rebuildAndApply()
+        }.setNegativeButton("Cancel", null).show()
     }
 
-    private fun showInstructorPicker() {
+    private fun pickDepartment() {
+        val filtered = allDepartments.filter { it.facultyId == filterFacultyId }
+        if (filtered.isEmpty()) { Toast.makeText(context, "No departments in this faculty", Toast.LENGTH_SHORT).show(); return }
+        val n = filtered.map { it.name }.toTypedArray()
+        AlertDialog.Builder(requireContext()).setTitle("Select Department").setItems(n) { _, w ->
+            val d = filtered[w]
+            filterDepartmentId = d.id; filterDepartmentName = d.name
+            filterLecturerId = null; filterLecturerName = null; rebuildAndApply()
+        }.setNegativeButton("Cancel", null).show()
+    }
+
+    private fun pickInstructor() {
         val filtered = allLecturers.filter { it.departmentId == filterDepartmentId }
         if (filtered.isEmpty()) { Toast.makeText(context, "No lecturers in this department", Toast.LENGTH_SHORT).show(); return }
-        val names = filtered.map { it.fullName.ifBlank { it.username } }.toTypedArray()
-        AlertDialog.Builder(requireContext())
-            .setTitle("Filter by Instructor")
-            .setItems(names) { _, which ->
-                val l = filtered[which]
-                filterLecturerId = l.id; filterLecturerName = l.fullName.ifBlank { l.username }
-                rebuildAndApply()
-            }.setNegativeButton("Cancel", null).show()
+        val n = filtered.map { it.fullName.ifBlank { it.username } }.toTypedArray()
+        AlertDialog.Builder(requireContext()).setTitle("Select Instructor").setItems(n) { _, w ->
+            val l = filtered[w]
+            filterLecturerId = l.id; filterLecturerName = l.fullName.ifBlank { l.username }; rebuildAndApply()
+        }.setNegativeButton("Cancel", null).show()
     }
 
-    private fun showDayPicker() {
-        val days = arrayOf("Monday", "Tuesday", "Wednesday", "Thursday", "Friday")
-        AlertDialog.Builder(requireContext())
-            .setTitle("Filter by Day")
-            .setItems(days) { _, which ->
-                filterDay = which + 1; filterDayName = days[which]
-                rebuildAndApply()
-            }.setNegativeButton("Cancel", null).show()
+    private fun pickDay() {
+        val d = arrayOf("Monday","Tuesday","Wednesday","Thursday","Friday")
+        AlertDialog.Builder(requireContext()).setTitle("Filter by Day").setItems(d) { _, w ->
+            filterDay = w + 1; filterDayName = d[w]; rebuildAndApply()
+        }.setNegativeButton("Cancel", null).show()
     }
 
-    private fun showTimePicker() {
-        val slots = arrayOf("08:00-10:00", "10:00-12:00", "13:00-15:00", "15:00-17:00")
-        AlertDialog.Builder(requireContext())
-            .setTitle("Filter by Time Slot")
-            .setItems(slots) { _, which ->
-                filterTimeSlot = slots[which]
-                rebuildAndApply()
-            }.setNegativeButton("Cancel", null).show()
+    private fun pickTime() {
+        val s = arrayOf("08:00-10:00","10:00-12:00","13:00-15:00","15:00-17:00")
+        AlertDialog.Builder(requireContext()).setTitle("Filter by Time").setItems(s) { _, w ->
+            filterTimeSlot = s[w]; rebuildAndApply()
+        }.setNegativeButton("Cancel", null).show()
     }
 
-    private fun rebuildAndApply() {
-        buildFilterChips()
-        applyFilters()
-    }
+    private fun rebuildAndApply() { buildFilterChips(); applyFilters() }
 
     private fun applyFilters() {
         var filtered = allSchedules
 
-        // Department: filter by course's departmentId
-        filterDepartmentId?.let { deptId ->
-            val courseIdsInDept = allCourses.filter { it.departmentId == deptId }.map { it.id }.toSet()
-            filtered = filtered.filter { it.courseId in courseIdsInDept || it.courseDepartmentId == deptId }
+        // Faculty → get all departments in that faculty → filter by course departmentId
+        if (filterDepartmentId != null) {
+            val cIds = allCourses.filter { it.departmentId == filterDepartmentId }.map { it.id }.toSet()
+            filtered = filtered.filter { it.courseId in cIds || it.courseDepartmentId == filterDepartmentId }
+        } else if (filterFacultyId != null) {
+            val dIds = allDepartments.filter { it.facultyId == filterFacultyId }.map { it.id }.toSet()
+            val cIds = allCourses.filter { it.departmentId in dIds }.map { it.id }.toSet()
+            filtered = filtered.filter { it.courseId in cIds || it.courseDepartmentId in dIds }
         }
 
-        // Instructor
-        filterLecturerId?.let { lecId ->
-            filtered = filtered.filter { it.lecturerId == lecId }
-        }
-
-        // Day
-        filterDay?.let { day ->
-            filtered = filtered.filter { it.dayOfWeek == day }
-        }
-
-        // Time slot
+        filterLecturerId?.let { id -> filtered = filtered.filter { it.lecturerId == id } }
+        filterDay?.let { d -> filtered = filtered.filter { it.dayOfWeek == d } }
         filterTimeSlot?.let { slot ->
-            val parts = slot.split("-")
-            if (parts.size == 2) {
-                val slotStart = parts[0].trim()
-                val slotEnd = parts[1].trim()
-                filtered = filtered.filter { entry ->
-                    entry.startTime < slotEnd && slotStart < entry.endTime
-                }
+            val p = slot.split("-"); if (p.size == 2) {
+                filtered = filtered.filter { it.startTime < p[1].trim() && p[0].trim() < it.endTime }
             }
         }
 
@@ -415,139 +359,81 @@ class SchedulerFragment : Fragment() {
                 "Showing all ${allSchedules.size} schedules"
             else "Showing ${filtered.size} of ${allSchedules.size} schedules"
         }
-
         scheduleAdapter.updateItems(filtered)
     }
 
-    // ─── 2D: Export ─────────────────────────────────────────────────────
+    // ─── Export / Sample ────────────────────────────────────────────────
     private fun exportSchedule() {
         viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
             try {
-                // Use currently filtered list
-                var filtered = allSchedules
-                filterDepartmentId?.let { dId ->
-                    filtered = filtered.filter { it.courseDepartmentId == dId || courseMap[it.courseId]?.departmentId == dId }
-                }
-                filterLecturerId?.let { lId -> filtered = filtered.filter { it.lecturerId == lId } }
-                filterDay?.let { d -> filtered = filtered.filter { it.dayOfWeek == d } }
-                filterTimeSlot?.let { slot ->
-                    val p = slot.split("-"); if (p.size == 2) {
-                        filtered = filtered.filter { it.startTime < p[1].trim() && p[0].trim() < it.endTime }
-                    }
-                }
-
-                val dayNames = mapOf(1 to "Monday", 2 to "Tuesday", 3 to "Wednesday", 4 to "Thursday", 5 to "Friday", 6 to "Saturday", 7 to "Sunday")
-
-                val rows = filtered.map { entry ->
+                val dayNames = mapOf(1 to "Monday",2 to "Tuesday",3 to "Wednesday",4 to "Thursday",5 to "Friday",6 to "Saturday",7 to "Sunday")
+                val rows = allSchedules.map { e ->
                     ExcelHelper.ScheduleExportRow(
-                        department = deptMap[courseMap[entry.courseId]?.departmentId] ?: "—",
-                        instructor = lecturerMap[entry.lecturerId]?.fullName ?: "—",
-                        courseName = courseMap[entry.courseId]?.name ?: "—",
-                        courseCode = courseMap[entry.courseId]?.code ?: "—",
-                        classroom = classroomMap[entry.classroomId]?.name ?: "Room #${entry.classroomId}",
-                        day = dayNames[entry.dayOfWeek] ?: "—",
-                        timeSlot = "${entry.startTime}-${entry.endTime}"
+                        department = deptMap[courseMap[e.courseId]?.departmentId] ?: "—",
+                        instructor = lecturerMap[e.lecturerId]?.fullName ?: "—",
+                        courseName = courseMap[e.courseId]?.name ?: "—",
+                        courseCode = courseMap[e.courseId]?.code ?: "—",
+                        classroom = classroomMap[e.classroomId]?.name ?: "Room #${e.classroomId}",
+                        day = dayNames[e.dayOfWeek] ?: "—",
+                        timeSlot = "${e.startTime}-${e.endTime}"
                     )
                 }
-
-                val success = ExcelHelper.exportScheduleToDownloads(requireContext(), rows)
+                val ok = ExcelHelper.exportScheduleToDownloads(requireContext(), rows)
                 withContext(Dispatchers.Main) {
-                    if (success) Snackbar.make(binding.root, "Exported to Downloads/schedule_export.xlsx", Snackbar.LENGTH_LONG).show()
+                    if (ok) Snackbar.make(binding.root, "Exported to Downloads/schedule_export.xlsx", Snackbar.LENGTH_LONG).show()
                     else Snackbar.make(binding.root, "Export failed", Snackbar.LENGTH_SHORT).show()
                 }
             } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    Snackbar.make(binding.root, "Export error: ${e.message}", Snackbar.LENGTH_LONG).show()
-                }
+                withContext(Dispatchers.Main) { Snackbar.make(binding.root, "Error: ${e.message}", Snackbar.LENGTH_LONG).show() }
             }
         }
     }
 
-    // ─── 2E: Download sample ────────────────────────────────────────────
     private fun downloadSample() {
         viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
             try {
-                val success = ExcelHelper.generateScheduleImportSample(requireContext())
+                val ok = ExcelHelper.generateScheduleImportSample(requireContext())
                 withContext(Dispatchers.Main) {
-                    if (success) Snackbar.make(binding.root, "Sample saved to Downloads/sample_schedule_import.xlsx", Snackbar.LENGTH_LONG).show()
-                    else Snackbar.make(binding.root, "Failed to save sample", Snackbar.LENGTH_SHORT).show()
+                    if (ok) Snackbar.make(binding.root, "Sample saved to Downloads", Snackbar.LENGTH_LONG).show()
+                    else Snackbar.make(binding.root, "Failed", Snackbar.LENGTH_SHORT).show()
                 }
             } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    Snackbar.make(binding.root, "Error: ${e.message}", Snackbar.LENGTH_LONG).show()
-                }
+                withContext(Dispatchers.Main) { Snackbar.make(binding.root, "Error: ${e.message}", Snackbar.LENGTH_LONG).show() }
             }
         }
     }
 
-    // ─── Permission helper ──────────────────────────────────────────────
     private fun runWithStoragePermission(action: () -> Unit) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            action()
-        } else {
-            if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED) {
-                action()
-            } else {
-                pendingExportAction = action
-                permissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
-            }
-        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) action()
+        else if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED) action()
+        else { pendingExportAction = action; permissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE) }
     }
 
     // ─── Data observation ───────────────────────────────────────────────
     private fun observeData() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                launch {
-                    viewModel.scheduleState.collect { state ->
-                        when (state) {
-                            is UiState.Loading -> binding.progressBar.visibility = View.VISIBLE
-                            is UiState.Success -> {
-                                binding.progressBar.visibility = View.GONE
-                                allSchedules = state.data
-                                applyFilters()
-                            }
-                            is UiState.Error -> {
-                                binding.progressBar.visibility = View.GONE
-                                Toast.makeText(context, state.message, Toast.LENGTH_LONG).show()
-                            }
-                        }
+                launch { viewModel.scheduleState.collect { s ->
+                    when (s) {
+                        is UiState.Loading -> binding.progressBar.visibility = View.VISIBLE
+                        is UiState.Success -> { binding.progressBar.visibility = View.GONE; allSchedules = s.data; applyFilters() }
+                        is UiState.Error -> { binding.progressBar.visibility = View.GONE; Toast.makeText(context, s.message, Toast.LENGTH_LONG).show() }
                     }
-                }
-                launch {
-                    viewModel.coursesState.collect { state ->
-                        if (state is UiState.Success) { allCourses = state.data; applyFilters() }
-                    }
-                }
-                launch {
-                    viewModel.lecturersState.collect { state ->
-                        if (state is UiState.Success) { allLecturers = state.data; applyFilters() }
-                    }
-                }
-                launch {
-                    viewModel.classroomsState.collect { state ->
-                        if (state is UiState.Success) { allClassrooms = state.data; applyFilters() }
-                    }
-                }
-                launch {
-                    viewModel.departmentsState.collect { state ->
-                        if (state is UiState.Success) allDepartments = state.data
-                    }
-                }
-                launch {
-                    viewModel.operationState.collect { state ->
-                        if (state is UiState.Error) {
-                            Snackbar.make(binding.root, state.message, Snackbar.LENGTH_LONG).show()
-                            viewModel.resetOperationState()
-                        }
-                    }
-                }
+                }}
+                launch { viewModel.coursesState.collect { if (it is UiState.Success) { allCourses = it.data; refreshLookups(); applyFilters() } } }
+                launch { viewModel.lecturersState.collect { if (it is UiState.Success) { allLecturers = it.data; refreshLookups(); applyFilters() } } }
+                launch { viewModel.classroomsState.collect { if (it is UiState.Success) { allClassrooms = it.data; refreshLookups(); applyFilters() } } }
+                launch { viewModel.departmentsState.collect { if (it is UiState.Success) allDepartments = it.data } }
+                launch { viewModel.facultiesState.collect { if (it is UiState.Success) allFaculties = it.data } }
+                launch { viewModel.operationState.collect { if (it is UiState.Error) { Snackbar.make(binding.root, it.message, Snackbar.LENGTH_LONG).show(); viewModel.resetOperationState() } } }
             }
         }
     }
 
-    override fun onDestroyView() {
-        super.onDestroyView()
-        _binding = null
+    /** Push latest lookup maps into the adapter so cards show human-readable names */
+    private fun refreshLookups() {
+        scheduleAdapter.updateLookups(courseMap, lecturerMap, classroomMap)
     }
+
+    override fun onDestroyView() { super.onDestroyView(); _binding = null }
 }

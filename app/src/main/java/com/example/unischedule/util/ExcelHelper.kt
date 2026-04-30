@@ -9,9 +9,12 @@ import android.os.Environment
 import android.provider.MediaStore
 import androidx.core.content.FileProvider
 import com.example.unischedule.data.firestore.Lecturer
+import com.example.unischedule.data.firestore.Course as FirestoreCourse
+import com.example.unischedule.data.firestore.Department
 import com.example.unischedule.data.entity.Course
 import com.example.unischedule.data.entity.Schedule
 import com.example.unischedule.data.imports.ImportedLecturerAccount
+import com.example.unischedule.data.repository.FirestoreRepository
 import com.example.unischedule.util.PasswordHasher
 import org.apache.poi.ss.usermodel.WorkbookFactory
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
@@ -86,6 +89,70 @@ object ExcelHelper {
 
                 courses.add(Course(
                     departmentId = 1, // Default or handle based on logic
+                    code = code,
+                    name = name,
+                    year = year,
+                    semester = semester,
+                    isMandatory = isMandatory
+                ))
+            }
+            workbook.close()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        return courses
+    }
+
+    /**
+     * Imports courses from Excel AND resolves Department name (Col 0) to a Firestore
+     * departmentId. If the department doesn't exist, it is created first.
+     *
+     * Expected columns: Department, Code, Name, Year, Semester, IsMandatory
+     */
+    suspend fun importCoursesWithDepartment(
+        inputStream: InputStream,
+        repository: FirestoreRepository
+    ): List<FirestoreCourse> {
+        val courses = mutableListOf<FirestoreCourse>()
+        try {
+            val workbook = WorkbookFactory.create(inputStream)
+            val sheet = workbook.getSheetAt(0)
+
+            // Cache existing departments so we don't query per row
+            val deptCache = mutableMapOf<String, Long>() // name → id
+
+            for (i in 1..sheet.lastRowNum) {
+                val row = sheet.getRow(i) ?: continue
+                val deptName = row.getCell(0)?.toString()?.trim().orEmpty()
+                val code = row.getCell(1)?.toString()?.trim().orEmpty()
+                val name = row.getCell(2)?.toString()?.trim().orEmpty()
+                if (code.isBlank() && name.isBlank()) continue
+
+                val year = try { row.getCell(3)?.numericCellValue?.toInt() ?: 1 } catch (_: Exception) { 1 }
+                val semester = try { row.getCell(4)?.numericCellValue?.toInt() ?: 1 } catch (_: Exception) { 1 }
+                val isMandatoryStr = row.getCell(5)?.toString()?.trim() ?: "true"
+                val isMandatory = isMandatoryStr.lowercase() == "true" || isMandatoryStr == "1"
+
+                // Resolve departmentId
+                val departmentId: Long = if (deptName.isNotBlank()) {
+                    deptCache.getOrPut(deptName.lowercase()) {
+                        // Try to find existing department
+                        val existing = repository.findDepartmentByName(deptName)
+                        if (existing != null) {
+                            existing.id
+                        } else {
+                            // Create new department
+                            val newId = repository.getNextIdForCollection("departments")
+                            val newDept = Department(id = newId, name = deptName)
+                            repository.addDepartment(newDept)
+                            newId
+                        }
+                    }
+                } else 0L
+
+                courses.add(FirestoreCourse(
+                    id = (1000L..99999L).random(),
+                    departmentId = departmentId,
                     code = code,
                     name = name,
                     year = year,
