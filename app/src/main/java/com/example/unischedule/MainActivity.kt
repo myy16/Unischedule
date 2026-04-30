@@ -106,7 +106,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // Hide toolbar and drawer on Login screen
+        // Hide toolbar and drawer on Login screen; swap drawer menu by role
         navController.addOnDestinationChangedListener { _, destination: NavDestination, _ ->
             if (destination.id == R.id.loginFragment || destination.id == R.id.passwordChangeFragment) {
                 binding.toolbar.visibility = View.GONE
@@ -115,6 +115,15 @@ class MainActivity : AppCompatActivity() {
                 binding.toolbar.visibility = View.VISIBLE
                 userViewModel.loadCurrentUserProfile(UserSession.userId?.toString())
                 drawerLayout.setDrawerLockMode(DrawerLayout.LOCK_MODE_UNLOCKED)
+
+                // Phase 2: Swap drawer menu based on role
+                val isLecturer = UserSession.userRole == UserSession.Role.LECTURER ||
+                    destination.id == R.id.instructorDashboardFragment ||
+                    destination.id == R.id.calendarFragment ||
+                    destination.id == R.id.availabilityFragment
+                val menuRes = if (isLecturer) R.menu.instructor_drawer_menu else R.menu.admin_drawer_menu
+                navView.menu.clear()
+                navView.inflateMenu(menuRes)
             }
         }
     }

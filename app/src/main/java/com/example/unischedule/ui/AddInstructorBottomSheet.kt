@@ -59,17 +59,26 @@ class AddInstructorBottomSheet : BottomSheetDialogFragment() {
 
             viewLifecycleOwner.lifecycleScope.launch {
                 try {
+                    val generatedFullName = if (title.isBlank()) name else "$title $name"
+                    val generatedPassword = com.example.unischedule.util.StringUtil.generateInitialPassword()
                     val lecturer = Lecturer(
                         id = 0L,  // Let ViewModel generate sequential ID
-                        username = email.substringBefore("@"),  // Extract username from email
-                        passwordHash = com.example.unischedule.util.PasswordHasher.sha256("123456"),  // Default secure password
-                        fullName = if (title.isBlank()) name else "$title $name",
+                        username = com.example.unischedule.util.StringUtil.generateUsername(generatedFullName),
+                        passwordHash = com.example.unischedule.util.PasswordHasher.sha256(generatedPassword),
+                        fullName = generatedFullName,
                         departmentId = selectedDept.id,
                         mustChangePassword = true // Require password change on first login
                     )
                     viewModel.addLecturer(lecturer)
-                    Toast.makeText(context, "Lecturer added successfully", Toast.LENGTH_SHORT).show()
-                    dismiss()
+                    
+                    // Show the generated credentials so Admin can share them
+                    android.app.AlertDialog.Builder(requireContext())
+                        .setTitle("Lecturer Added")
+                        .setMessage("Lecturer successfully added.\n\nUsername: ${lecturer.username}\nTemporary Password: $generatedPassword\n\nPlease securely share these credentials.")
+                        .setPositiveButton("OK") { _, _ -> dismiss() }
+                        .setCancelable(false)
+                        .show()
+                        
                 } catch (e: Exception) {
                     Log.w("AddInstructor", "Failed to add lecturer", e)
                     Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()

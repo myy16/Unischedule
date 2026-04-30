@@ -15,9 +15,6 @@ import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
 import java.util.Locale
-import kotlin.random.Random
-
-private val initialPasswordCharset = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 
 data class LecturerImportRow(
     val lecturer: Lecturer,
@@ -38,8 +35,8 @@ object ExcelHelper {
                 if (fullName.isBlank()) continue
 
                 val departmentId = row.getCell(1)?.toString()?.trim()?.replace(".0", "")?.toLongOrNull() ?: 0L
-                val initialPassword = generateInitialPassword()
-                val username = generateUsername(fullName)
+                val initialPassword = StringUtil.generateInitialPassword()
+                val username = StringUtil.generateUsername(fullName)
 
                 lecturers.add(
                     LecturerImportRow(
@@ -147,27 +144,6 @@ object ExcelHelper {
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
         context.startActivity(Intent.createChooser(intent, "Share Timetable via"))
-    }
-
-    private fun generateUsername(fullName: String): String {
-        val parts = fullName
-            .trim()
-            .split(Regex("[\\s_\\-]+"))
-            .filter { it.isNotBlank() }
-
-        return when {
-            parts.size >= 2 -> "${parts.first().lowercase(Locale.getDefault())}_${parts.last().lowercase(Locale.getDefault())}"
-            parts.size == 1 -> parts.first().lowercase(Locale.getDefault())
-            else -> "lecturer"
-        }
-    }
-
-    private fun generateInitialPassword(length: Int = 6): String {
-        return buildString(length) {
-            repeat(length) {
-                append(initialPasswordCharset.random(Random.Default))
-            }
-        }
     }
 
     private fun getDayName(day: Int): String = when (day) {

@@ -86,6 +86,9 @@ dependencies {
     implementation("com.google.firebase:firebase-auth")
     implementation("com.google.firebase:firebase-firestore")
 
+    // Encrypted SharedPreferences (Phase 2 session security)
+    implementation("androidx.security:security-crypto:1.1.0-alpha06")
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

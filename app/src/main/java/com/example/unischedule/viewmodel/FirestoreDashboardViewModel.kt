@@ -24,8 +24,8 @@ class FirestoreDashboardViewModel(private val repository: FirestoreRepository) :
     val availableClassroomsState: StateFlow<UiState<Int>> = _availableClassroomsState.asStateFlow()
 
     init {
-        observeCount(repository.observeUnassignedLecturers(), _unassignedLecturersState)
-        observeCount(repository.observeUnassignedCourses(), _unassignedCoursesState)
+        observeCount(repository.observeUnassignedLecturersCorrect(), _unassignedLecturersState)
+        observeCount(repository.observeUnassignedCoursesCorrect(), _unassignedCoursesState)
         observeCount(repository.observeAvailableClassrooms(), _availableClassroomsState)
     }
 

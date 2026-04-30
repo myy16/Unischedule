@@ -18,6 +18,7 @@ import com.example.unischedule.util.UiState
 import com.example.unischedule.util.toTitleCase
 import com.example.unischedule.viewmodel.FirestoreInstructorViewModel
 import com.example.unischedule.viewmodel.FirestoreInstructorViewModelFactory
+import com.example.unischedule.data.repository.FirestoreRepository
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
 
@@ -46,6 +47,19 @@ class InstructorDashboardFragment : Fragment() {
         
         viewModel.loadMySchedule(instructorId)
 
+        // Phase 2: Load lecturer profile for department name and weekly count
+        val firestoreRepository = FirestoreRepository(FirebaseFirestore.getInstance())
+        viewLifecycleOwner.lifecycleScope.launch {
+            try {
+                val lecturer = firestoreRepository.getLecturerById(instructorId)
+                if (lecturer != null) {
+                    binding.welcomeText.text = "Welcome ${lecturer.fullName}"
+                    val department = firestoreRepository.getDepartmentById(lecturer.departmentId)
+                    binding.departmentText.text = department?.name ?: ""
+                }
+            } catch (_: Exception) { /* Silently ignore — welcome text already set above */ }
+        }
+
         scheduleAdapter = ScheduleAdapter { 
             // Optional: Click on schedule item
         }
@@ -73,6 +87,7 @@ class InstructorDashboardFragment : Fragment() {
                     when (state) {
                         is UiState.Success -> {
                             val schedules = state.data
+                            binding.weeklyCountText.text = "Bu hafta: ${schedules.size} ders"
                             if (schedules.isEmpty()) {
                                 binding.noClassesText.visibility = View.VISIBLE
                                 binding.myScheduleRecyclerView.visibility = View.GONE

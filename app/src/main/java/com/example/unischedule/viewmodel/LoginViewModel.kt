@@ -20,8 +20,7 @@ class LoginViewModel(private val repository: FirestoreRepository) : ViewModel() 
         _loginState.value = UiState.Loading
         viewModelScope.launch {
             try {
-                val hashedPassword = PasswordHasher.sha256(rawPassword)
-                val authenticated = repository.authenticateUser(username, hashedPassword)
+                val authenticated = repository.authenticateUser(username, rawPassword)
                 if (authenticated == null) {
                     _loginState.value = UiState.Error("Invalid credentials")
                 } else {

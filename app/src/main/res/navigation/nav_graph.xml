@@ -86,7 +86,13 @@
         android:id="@+id/passwordChangeFragment"
         android:name="com.example.unischedule.ui.PasswordChangeFragment"
         android:label="Change Password"
-        tools:layout="@layout/fragment_password_change" />
+        tools:layout="@layout/fragment_password_change">
+        <action
+            android:id="@+id/action_passwordChangeFragment_to_instructorDashboardFragment"
+            app:destination="@id/instructorDashboardFragment"
+            app:popUpTo="@id/passwordChangeFragment"
+            app:popUpToInclusive="true" />
+    </fragment>
 
     <fragment
         android:id="@+id/calendarFragment"

@@ -67,9 +67,13 @@ class LoginFragment : Fragment() {
     }
 
     private fun handleLoginSuccess(user: com.example.unischedule.data.repository.AuthenticatedUser) {
+        // Legacy in-memory (backward compat)
         UserSession.userId = user.id
         UserSession.userRole = user.role
         UserSession.userName = user.username
+
+        // Phase 2: Persistent encrypted session
+        UserSession.save(requireContext(), user.id, user.role, user.username, user.mustChangePassword)
 
         val destination = when {
             user.mustChangePassword -> R.id.action_loginFragment_to_passwordChangeFragment

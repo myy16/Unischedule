@@ -14,6 +14,8 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
 import com.example.unischedule.R
+import com.example.unischedule.data.firestore.Classroom
+import com.example.unischedule.data.firestore.Course
 import com.example.unischedule.data.firestore.InstructorAvailability
 import com.example.unischedule.data.firestore.ScheduleEntry
 import com.example.unischedule.data.repository.FirestoreRepository
@@ -52,6 +54,8 @@ class CalendarFragment : Fragment() {
     )
 
     private var currentAvailability: List<InstructorAvailability> = emptyList()
+    private var courseMap: Map<Long, Course> = emptyMap()
+    private var classroomMap: Map<Long, Classroom> = emptyMap()
 
     private val daysOfWeek = listOf(
         Pair(1, "Mon"),
@@ -83,6 +87,7 @@ class CalendarFragment : Fragment() {
         // Collect schedule data and populate grid
         observeScheduleUpdates()
         observeAvailabilityUpdates()
+        observeLookupData()
     }
 
     /**
@@ -237,6 +242,26 @@ class CalendarFragment : Fragment() {
     }
 
     /**
+     * Phase 2: Observe course and classroom lookup data for resolving IDs to names.
+     */
+    private fun observeLookupData() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                launch {
+                    viewModel.courseMap.collect { map ->
+                        courseMap = map
+                    }
+                }
+                launch {
+                    viewModel.classroomMap.collect { map ->
+                        classroomMap = map
+                    }
+                }
+            }
+        }
+    }
+
+    /**
      * Populates calendar cells with course information from schedule entries.
      * Maps each ScheduleEntry to the correct grid cell based on day of week and time slot.
      */
@@ -324,7 +349,8 @@ class CalendarFragment : Fragment() {
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
             )
-            text = "Course ${schedule.courseId}"
+            val course = courseMap[schedule.courseId]
+            text = course?.code ?: "Course ${schedule.courseId}"
             textSize = 10f
             setTypeface(null, android.graphics.Typeface.BOLD)
             gravity = android.view.Gravity.CENTER
@@ -338,7 +364,8 @@ class CalendarFragment : Fragment() {
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
             )
-            text = "Room ${schedule.classroomId}"
+            val classroom = classroomMap[schedule.classroomId]
+            text = classroom?.name ?: "Room ${schedule.classroomId}"
             textSize = 9f
             gravity = android.view.Gravity.CENTER
             setTextColor(android.graphics.Color.GRAY)

@@ -96,11 +96,11 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
                 .whereEqualTo("lecturerId", lecturerId)
         )
 
-    suspend fun authenticateUser(username: String, passwordHash: String): AuthenticatedUser? = withContext(Dispatchers.IO) {
-        authenticateAdmin(username, passwordHash) ?: authenticateLecturer(username, passwordHash)
+    suspend fun authenticateUser(username: String, rawPassword: String): AuthenticatedUser? = withContext(Dispatchers.IO) {
+        authenticateAdmin(username, rawPassword) ?: authenticateLecturer(username, rawPassword)
     }
 
-    private suspend fun authenticateAdmin(username: String, passwordHash: String): AuthenticatedUser? {
+    private suspend fun authenticateAdmin(username: String, rawPassword: String): AuthenticatedUser? {
         val snapshot = db.collection("admins")
             .whereEqualTo("username", username)
             .limit(1)
@@ -108,7 +108,14 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
             .await()
 
         val admin = snapshot.toObjects(AdminAccount::class.java).firstOrNull() ?: return null
-        if (admin.passwordHash != passwordHash) return null
+        
+        val hashed = PasswordHasher.sha256(rawPassword)
+        if (admin.passwordHash != hashed && admin.passwordHash != rawPassword) return null
+        
+        // Migration: If password was plaintext, update it to hash
+        if (admin.passwordHash == rawPassword) {
+            snapshot.documents.firstOrNull()?.reference?.update("passwordHash", hashed)
+        }
 
         return AuthenticatedUser(
             id = admin.id,
@@ -118,7 +125,7 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
         )
     }
 
-    private suspend fun authenticateLecturer(username: String, passwordHash: String): AuthenticatedUser? {
+    private suspend fun authenticateLecturer(username: String, rawPassword: String): AuthenticatedUser? {
         val snapshot = db.collection("lecturers")
             .whereEqualTo("username", username)
             .limit(1)
@@ -126,7 +133,14 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
             .await()
 
         val lecturer = snapshot.toObjects(Lecturer::class.java).firstOrNull() ?: return null
-        if (lecturer.passwordHash != passwordHash) return null
+        
+        val hashed = PasswordHasher.sha256(rawPassword)
+        if (lecturer.passwordHash != hashed && lecturer.passwordHash != rawPassword) return null
+        
+        // Migration: If password was plaintext, update it to hash
+        if (lecturer.passwordHash == rawPassword) {
+            snapshot.documents.firstOrNull()?.reference?.update("passwordHash", hashed)
+        }
 
         return AuthenticatedUser(
             id = lecturer.id,
@@ -366,6 +380,133 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
             if (e is CancellationException) throw e
             throw e
         }
+    }
+
+    // --- Phase 2: Single document lookups ---
+
+    suspend fun getLecturerById(lecturerId: Long): Lecturer? = withContext(Dispatchers.IO) {
+        try {
+            db.collection("lecturers").document(lecturerId.toString())
+                .get().await()
+                .toObject(Lecturer::class.java)
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            null
+        }
+    }
+
+    suspend fun getDepartmentById(departmentId: Long): com.example.unischedule.data.firestore.Department? = withContext(Dispatchers.IO) {
+        try {
+            db.collection("departments").document(departmentId.toString())
+                .get().await()
+                .toObject(com.example.unischedule.data.firestore.Department::class.java)
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            null
+        }
+    }
+
+    suspend fun getCourseById(courseId: Long): Course? = withContext(Dispatchers.IO) {
+        try {
+            db.collection("courses").document(courseId.toString())
+                .get().await()
+                .toObject(Course::class.java)
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            null
+        }
+    }
+
+    suspend fun getClassroomById(classroomId: Long): Classroom? = withContext(Dispatchers.IO) {
+        try {
+            db.collection("classrooms").document(classroomId.toString())
+                .get().await()
+                .toObject(Classroom::class.java)
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            null
+        }
+    }
+
+    /**
+     * Phase 2: Partial field update for a lecturer document.
+     * Used by password change flow to update passwordHash and mustChangePassword.
+     */
+    suspend fun updateLecturerFields(lecturerId: Long, fields: Map<String, Any>) = withContext(Dispatchers.IO) {
+        try {
+            db.collection("lecturers").document(lecturerId.toString()).update(fields).await()
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            throw e
+        }
+    }
+
+    // --- Phase 2: Correct dashboard queries ---
+
+    /**
+     * Returns lecturers who have NO entries in schedules collection.
+     * This is the correct semantic for "unassigned lecturers".
+     */
+    fun observeUnassignedLecturersCorrect(): Flow<UiState<List<Lecturer>>> = callbackFlow {
+        trySend(UiState.Loading)
+
+        val lecturerReg = db.collection("lecturers").addSnapshotListener { lecturerSnap, lecturerErr ->
+            if (lecturerErr != null) {
+                trySend(UiState.Error(lecturerErr.message ?: "Firestore error"))
+                return@addSnapshotListener
+            }
+
+            db.collection("schedules").get()
+                .addOnSuccessListener { scheduleSnap ->
+                    val assignedLecturerIds = scheduleSnap.documents
+                        .mapNotNull { it.getLong("lecturerId") }
+                        .toSet()
+
+                    val unassigned = lecturerSnap?.toObjects(Lecturer::class.java)
+                        ?.filter { it.id !in assignedLecturerIds }
+                        ?: emptyList()
+
+                    trySend(UiState.Success(unassigned))
+                }
+                .addOnFailureListener { e ->
+                    trySend(UiState.Error(e.message ?: "Failed to check schedules"))
+                }
+        }
+
+        awaitClose { lecturerReg.remove() }
+    }
+
+    /**
+     * Returns courses that have NO entries in schedules collection.
+     * This is the correct semantic for "unassigned courses".
+     */
+    fun observeUnassignedCoursesCorrect(): Flow<UiState<List<Course>>> = callbackFlow {
+        trySend(UiState.Loading)
+
+        val courseReg = db.collection("courses").addSnapshotListener { courseSnap, courseErr ->
+            if (courseErr != null) {
+                trySend(UiState.Error(courseErr.message ?: "Firestore error"))
+                return@addSnapshotListener
+            }
+
+            db.collection("schedules").get()
+                .addOnSuccessListener { scheduleSnap ->
+                    val assignedCourseIds = scheduleSnap.documents
+                        .mapNotNull { it.getLong("courseId") }
+                        .toSet()
+
+                    val unassigned = courseSnap?.toObjects(Course::class.java)
+                        ?.filter { it.id !in assignedCourseIds }
+                        ?: emptyList()
+
+                    trySend(UiState.Success(unassigned))
+                }
+                .addOnFailureListener { e ->
+                    trySend(UiState.Error(e.message ?: "Failed to check schedules"))
+                }
+        }
+
+        awaitClose { courseReg.remove() }
     }
 
     // Lecture CRUD (additional)

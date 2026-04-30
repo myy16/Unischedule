@@ -15,6 +15,28 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
+    <TextView
+        android:id="@+id/departmentText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:text=""
+        android:textColor="#667085"
+        android:textSize="14sp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/welcomeText" />
+
+    <TextView
+        android:id="@+id/weeklyCountText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:text=""
+        android:textColor="#667085"
+        android:textSize="13sp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/departmentText" />
+
     <ImageButton
         android:id="@+id/btnLogout"
         android:layout_width="48dp"
@@ -34,7 +56,7 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/welcomeText" />
+        app:layout_constraintTop_toBottomOf="@id/weeklyCountText" />
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/myScheduleRecyclerView"
@@ -42,7 +64,7 @@
         android:layout_height="0dp"
         android:layout_marginTop="16dp"
         app:layout_constraintBottom_toTopOf="@id/btnViewCalendar"
-        app:layout_constraintTop_toBottomOf="@id/welcomeText" />
+        app:layout_constraintTop_toBottomOf="@id/weeklyCountText" />
 
     <!-- Task 5: Calendar button for weekly view -->
     <Button

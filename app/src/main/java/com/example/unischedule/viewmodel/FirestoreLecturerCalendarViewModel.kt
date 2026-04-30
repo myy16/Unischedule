@@ -2,6 +2,8 @@ package com.example.unischedule.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.unischedule.data.firestore.Classroom
+import com.example.unischedule.data.firestore.Course
 import com.example.unischedule.data.firestore.InstructorAvailability
 import com.example.unischedule.data.firestore.ScheduleEntry
 import com.example.unischedule.data.repository.FirestoreRepository
@@ -14,6 +16,7 @@ import kotlinx.coroutines.launch
 /**
  * Task 5: ViewModel for lecturer's calendar view.
  * Provides real-time schedule updates filtered by logged-in lecturer ID.
+ * Phase 2: Also resolves course names and classroom names from Firestore.
  * Follows sustainable coding: lifecycle-aware collection via repeatOnLifecycle(STARTED) in Fragment.
  */
 class FirestoreLecturerCalendarViewModel(
@@ -27,9 +30,17 @@ class FirestoreLecturerCalendarViewModel(
     private val _availabilityState = MutableStateFlow<UiState<List<InstructorAvailability>>>(UiState.Loading)
     val availabilityState: StateFlow<UiState<List<InstructorAvailability>>> = _availabilityState.asStateFlow()
 
+    // Phase 2: Course and Classroom lookup maps for resolving IDs to names
+    private val _courseMap = MutableStateFlow<Map<Long, Course>>(emptyMap())
+    val courseMap: StateFlow<Map<Long, Course>> = _courseMap.asStateFlow()
+
+    private val _classroomMap = MutableStateFlow<Map<Long, Classroom>>(emptyMap())
+    val classroomMap: StateFlow<Map<Long, Classroom>> = _classroomMap.asStateFlow()
+
     init {
         observeSchedule()
         observeAvailability()
+        loadLookupData()
     }
 
     private fun observeSchedule() {
@@ -44,6 +55,26 @@ class FirestoreLecturerCalendarViewModel(
         viewModelScope.launch {
             repository.observeInstructorAvailability(lecturerId).collect { state ->
                 _availabilityState.value = state
+            }
+        }
+    }
+
+    /**
+     * Phase 2: Load all courses and classrooms for ID-to-name resolution in calendar cells.
+     */
+    private fun loadLookupData() {
+        viewModelScope.launch {
+            repository.observeCourses().collect { state ->
+                if (state is UiState.Success) {
+                    _courseMap.value = state.data.associateBy { it.id }
+                }
+            }
+        }
+        viewModelScope.launch {
+            repository.observeClassrooms().collect { state ->
+                if (state is UiState.Success) {
+                    _classroomMap.value = state.data.associateBy { it.id }
+                }
             }
         }
     }
