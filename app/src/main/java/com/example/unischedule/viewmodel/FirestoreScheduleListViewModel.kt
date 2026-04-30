@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.tasks.await
 
 class FirestoreScheduleListViewModel(private val repository: FirestoreRepository) : ViewModel() {
 
@@ -147,9 +148,5 @@ class FirestoreScheduleListViewModel(private val repository: FirestoreRepository
 
     private fun timeRangesOverlap(startA: String, endA: String, startB: String, endB: String): Boolean {
         return startA < endB && startB < endA
-    }
-
-    private suspend fun com.google.android.gms.tasks.Task<Void>.await() {
-        kotlinx.coroutines.tasks.await(this)
     }
 }
