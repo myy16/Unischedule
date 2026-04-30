@@ -1,120 +1,107 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:padding="8dp"
+    android:fillViewport="true"
     android:background="@android:color/white">
 
-    <!-- Header with title -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical"
-        android:layout_marginBottom="16dp">
+        android:orientation="vertical"
+        android:padding="8dp">
 
-        <TextView
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="Weekly Schedule"
-            android:textSize="20sp"
-            android:textStyle="bold"
-            android:textColor="@android:color/black" />
-
-        <Button
-            android:id="@+id/btnBack"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Back"
-            android:textSize="12sp" />
-    </LinearLayout>
-
-    <LinearLayout
-        android:id="@+id/calendarLegend"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:layout_marginBottom="12dp"
-        android:gravity="center_vertical" />
-
-    <!-- Empty state message -->
-    <TextView
-        android:id="@+id/noClassesText"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:gravity="center"
-        android:textSize="16sp"
-        android:textColor="@android:color/darker_gray"
-        android:text="No classes scheduled for this week"
-        android:visibility="gone" />
-
-    <!-- Calendar grid container -->
-    <HorizontalScrollView
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:scrollbars="horizontal"
-        android:id="@+id/calendarScrollView">
-
+        <!-- Header with title -->
         <LinearLayout
-            android:layout_width="wrap_content"
-            android:layout_height="match_parent"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:id="@+id/calendarContainer">
+            android:gravity="center_vertical"
+            android:layout_marginBottom="16dp">
 
-            <!-- Time slot column (left) -->
-            <LinearLayout
-                android:layout_width="60dp"
-                android:layout_height="match_parent"
-                android:orientation="vertical"
-                android:background="@drawable/grid_border">
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Weekly Schedule"
+                android:textSize="20sp"
+                android:textStyle="bold"
+                android:textColor="@android:color/black" />
 
-                <!-- Time header label -->
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="40dp"
-                    android:background="@color/light_gray"
-                    android:gravity="center"
-                    android:text="Time"
-                    android:textColor="@android:color/black"
-                    android:textSize="12sp"
-                    android:textStyle="bold" />
-
-                <!-- Time slots -->
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="0dp"
-                    android:layout_weight="1"
-                    android:orientation="vertical"
-                    android:id="@+id/timeSlotsList" />
-            </LinearLayout>
-
-            <!-- Day columns container -->
-            <LinearLayout
-                android:id="@+id/dayColumnsContainer"
+            <Button
+                android:id="@+id/btnBack"
                 android:layout_width="wrap_content"
-                android:layout_height="match_parent"
-                android:orientation="horizontal" />
+                android:layout_height="wrap_content"
+                android:text="Back"
+                android:textSize="12sp" />
         </LinearLayout>
-    </HorizontalScrollView>
 
-    <!-- Loading indicator -->
-    <ProgressBar
-        android:id="@+id/loadingProgress"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:visibility="gone"
-        style="?attr/progressBarStyle" />
+        <!-- Legend row -->
+        <LinearLayout
+            android:id="@+id/calendarLegend"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="12dp"
+            android:gravity="center_vertical">
+            
+            <View android:layout_width="16dp" android:layout_height="16dp" android:background="#C8E6C9" android:layout_marginEnd="8dp"/>
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Available" android:textColor="@android:color/darker_gray" android:layout_marginEnd="16dp" />
 
-    <!-- Error message -->
-    <TextView
-        android:id="@+id/errorText"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:textColor="@android:color/holo_red_dark"
-        android:padding="12dp"
-        android:visibility="gone"
-        android:textSize="14sp" />
-</LinearLayout>
+            <View android:layout_width="16dp" android:layout_height="16dp" android:background="#FFCDD2" android:layout_marginEnd="8dp"/>
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Busy" android:textColor="@android:color/darker_gray" android:layout_marginEnd="16dp"/>
+
+            <View android:layout_width="16dp" android:layout_height="16dp" android:background="#BBDEFB" android:layout_marginEnd="8dp"/>
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Your Course" android:textColor="@android:color/darker_gray" />
+        </LinearLayout>
+
+        <!-- Calendar grid -->
+        <HorizontalScrollView
+            android:id="@+id/calendarScrollView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+            <TableLayout
+                android:id="@+id/calendarTable"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:stretchColumns="1,2,3,4,5"
+                android:background="@drawable/grid_border">
+                <!-- Rows will be populated programmatically -->
+            </TableLayout>
+            
+        </HorizontalScrollView>
+
+        <!-- Empty state message -->
+        <TextView
+            android:id="@+id/noClassesText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:textSize="16sp"
+            android:textColor="@android:color/darker_gray"
+            android:text="No classes scheduled for this week"
+            android:visibility="gone"
+            android:layout_marginTop="32dp"/>
+
+        <!-- Loading indicator -->
+        <ProgressBar
+            android:id="@+id/loadingProgress"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:visibility="gone"
+            style="?attr/progressBarStyle"
+            android:layout_marginTop="32dp"/>
+
+        <!-- Error message -->
+        <TextView
+            android:id="@+id/errorText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="@android:color/holo_red_dark"
+            android:padding="12dp"
+            android:visibility="gone"
+            android:textSize="14sp" />
+
+    </LinearLayout>
+</androidx.core.widget.NestedScrollView>

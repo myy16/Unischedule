@@ -56,21 +56,57 @@ class FirestoreDashboardViewModel(private val repository: FirestoreRepository) :
     private var classroomMap: Map<Long, String> = emptyMap()
     private var scheduleEntries: List<ScheduleEntry> = emptyList()
 
+    private val firestore = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+    private val listeners = mutableListOf<com.google.firebase.firestore.ListenerRegistration>()
+
     init {
         // Section 1: Total counts
         observeCount(repository.observeLecturers(), _totalLecturersState)
         observeCount(repository.observeCourses(), _totalCoursesState)
         observeCount(repository.observeClassrooms(), _totalClassroomsState)
 
-        // Section 2: Warning counts
-        observeCount(repository.observeUnassignedLecturersCorrect(), _unassignedLecturersState)
-        observeCount(repository.observeUnassignedCoursesCorrect(), _unassignedCoursesState)
-
-        // Section 2: Fully booked classrooms (classrooms used in 5+ schedule slots this week)
-        observeFullyBookedClassrooms()
+        // Section 2: Warning panels via direct SnapshotListeners
+        setupWarningListeners()
 
         // Build lookup maps and recent activity
         observeLookupData()
+    }
+
+    private fun setupWarningListeners() {
+        // 1. Unassigned Lecturers
+        val lecturersListener = firestore.collection("lecturers").addSnapshotListener { lecturersSnap, e1 ->
+            if (e1 != null) return@addSnapshotListener
+            firestore.collection("schedules").addSnapshotListener { schedulesSnap, e2 ->
+                if (e2 != null) return@addSnapshotListener
+                
+                val assignedLecturerIds = schedulesSnap?.documents?.mapNotNull { it.getLong("lecturerId") }?.toSet() ?: emptySet()
+                val totalLecturers = lecturersSnap?.documents?.mapNotNull { it.getLong("id") } ?: emptyList()
+                val unassignedCount = totalLecturers.count { it !in assignedLecturerIds }
+                _unassignedLecturersState.value = UiState.Success(unassignedCount)
+            }.also { listeners.add(it) }
+        }.also { listeners.add(it) }
+
+        // 2. Unassigned Courses
+        val coursesListener = firestore.collection("courses").addSnapshotListener { coursesSnap, e1 ->
+            if (e1 != null) return@addSnapshotListener
+            firestore.collection("schedules").addSnapshotListener { schedulesSnap, e2 ->
+                if (e2 != null) return@addSnapshotListener
+                
+                val assignedCourseIds = schedulesSnap?.documents?.mapNotNull { it.getLong("courseId") }?.toSet() ?: emptySet()
+                val totalCourses = coursesSnap?.documents?.mapNotNull { it.getLong("id") } ?: emptyList()
+                val unassignedCount = totalCourses.count { it !in assignedCourseIds }
+                _unassignedCoursesState.value = UiState.Success(unassignedCount)
+            }.also { listeners.add(it) }
+        }.also { listeners.add(it) }
+
+        // 3. Fully Booked Classrooms
+        val scheduleListener = firestore.collection("schedules").addSnapshotListener { schedulesSnap, e ->
+            if (e != null) return@addSnapshotListener
+            val entries = schedulesSnap?.toObjects(ScheduleEntry::class.java) ?: emptyList()
+            val slotsPerClassroom = entries.groupBy { it.classroomId }
+            val fullyBookedCount = slotsPerClassroom.count { (_, slots) -> slots.size >= 5 }
+            _fullyBookedClassroomsState.value = UiState.Success(fullyBookedCount)
+        }.also { listeners.add(it) }
     }
 
     private fun <T> observeCount(
@@ -83,23 +119,6 @@ class FirestoreDashboardViewModel(private val repository: FirestoreRepository) :
                     is UiState.Loading -> UiState.Loading
                     is UiState.Error -> UiState.Error(state.message)
                     is UiState.Success -> UiState.Success(state.data.size)
-                }
-            }
-        }
-    }
-
-    private fun observeFullyBookedClassrooms() {
-        viewModelScope.launch {
-            repository.observeSchedules().collect { state ->
-                when (state) {
-                    is UiState.Success -> {
-                        // Count unique slots per classroom; "fully booked" = 5+ slots (whole week filled)
-                        val slotsPerClassroom = state.data.groupBy { it.classroomId }
-                        val fullyBooked = slotsPerClassroom.count { (_, slots) -> slots.size >= 5 }
-                        _fullyBookedClassroomsState.value = UiState.Success(fullyBooked)
-                    }
-                    is UiState.Error -> _fullyBookedClassroomsState.value = UiState.Error(state.message)
-                    is UiState.Loading -> _fullyBookedClassroomsState.value = UiState.Loading
                 }
             }
         }
@@ -156,7 +175,7 @@ class FirestoreDashboardViewModel(private val repository: FirestoreRepository) :
             4 to "Thursday", 5 to "Friday", 6 to "Saturday", 7 to "Sunday"
         )
 
-        // Take last 5 entries (by order from Firestore — newest documents are typically last)
+        // Take last 5 entries
         val recent = scheduleEntries.takeLast(5).reversed().map { entry ->
             RecentActivityItem(
                 courseCode = courseMap[entry.courseId] ?: "Course #${entry.courseId}",
@@ -168,5 +187,10 @@ class FirestoreDashboardViewModel(private val repository: FirestoreRepository) :
         }
 
         _recentActivityState.value = UiState.Success(recent)
+    }
+
+    override fun onCleared() {
+        listeners.forEach { it.remove() }
+        super.onCleared()
     }
 }

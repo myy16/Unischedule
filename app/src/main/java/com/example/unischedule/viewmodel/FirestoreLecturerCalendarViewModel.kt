@@ -49,7 +49,7 @@ class FirestoreLecturerCalendarViewModel(
 
     private fun observeSchedule() {
         viewModelScope.launch {
-            repository.observeLecturerSchedule(lecturerId).collect { state ->
+            repository.observeSchedules().collect { state ->
                 _lecturerScheduleState.value = state
             }
         }
