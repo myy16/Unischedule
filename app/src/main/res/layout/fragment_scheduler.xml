@@ -4,24 +4,84 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
+    <!-- Filter bar -->
+    <LinearLayout
+        android:id="@+id/filterBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="#FAFBFC"
+        android:padding="8dp"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <HorizontalScrollView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:scrollbars="none">
+
+            <com.google.android.material.chip.ChipGroup
+                android:id="@+id/filterChipGroup"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                app:singleLine="true"
+                app:chipSpacingHorizontal="6dp" />
+        </HorizontalScrollView>
+
+        <TextView
+            android:id="@+id/resultCountText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Loading…"
+            android:textSize="12sp"
+            android:textColor="#667085"
+            android:layout_marginTop="4dp" />
+    </LinearLayout>
+
+    <!-- Progress bar -->
+    <ProgressBar
+        android:id="@+id/progressBar"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:visibility="gone"
+        app:layout_constraintTop_toBottomOf="@id/filterBar"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/schedulerRecyclerView"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:padding="8dp"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintTop_toBottomOf="@id/filterBar"
+        app:layout_constraintBottom_toBottomOf="parent" />
 
+    <!-- Export button -->
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/btnExportShare"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_margin="16dp"
-        android:contentDescription="Export and Share"
+        android:contentDescription="Export Excel"
+        app:layout_constraintBottom_toTopOf="@+id/btnDownloadSample"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:srcCompat="@android:drawable/ic_menu_save" />
+
+    <!-- Download Sample button -->
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/btnDownloadSample"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_margin="16dp"
+        android:contentDescription="Download Sample"
+        app:fabSize="mini"
         app:layout_constraintBottom_toTopOf="@+id/fabAddSchedule"
         app:layout_constraintEnd_toEndOf="parent"
-        app:srcCompat="@android:drawable/ic_menu_share" />
+        app:srcCompat="@android:drawable/ic_menu_help" />
 
+    <!-- Add schedule button -->
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/fabAddSchedule"
         android:layout_width="wrap_content"

@@ -6,34 +6,111 @@
     android:layout_height="match_parent"
     android:padding="16dp">
 
+    <!-- Header row: Title + buttons -->
     <TextView
         android:id="@+id/titleTextView"
-        android:layout_width="wrap_content"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:text="Course Management"
-        android:textSize="24sp"
+        android:textSize="22sp"
         android:textStyle="bold"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintEnd_toStartOf="@+id/buttonRow" />
 
-    <Button
-        android:id="@+id/btnImportExcel"
-        style="@style/Widget.Material3.Button.TonalButton"
+    <LinearLayout
+        android:id="@+id/buttonRow"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Import Excel"
+        android:orientation="horizontal"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintTop_toTopOf="parent">
+
+        <ImageButton
+            android:id="@+id/btnDownloadSample"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Download Sample"
+            android:src="@android:drawable/ic_menu_help"
+            android:padding="4dp"
+            app:tint="@color/navy_blue" />
+
+        <ImageButton
+            android:id="@+id/btnExportExcel"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Export Excel"
+            android:src="@android:drawable/ic_menu_save"
+            android:padding="4dp"
+            app:tint="@color/navy_blue" />
+
+        <Button
+            android:id="@+id/btnImportExcel"
+            style="@style/Widget.Material3.Button.TonalButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Import"
+            android:textSize="13sp" />
+    </LinearLayout>
+
+    <!-- Cascading filter bar -->
+    <LinearLayout
+        android:id="@+id/filterBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:layout_marginTop="8dp"
+        android:background="#FAFBFC"
+        android:padding="8dp"
+        app:layout_constraintTop_toBottomOf="@id/titleTextView"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <HorizontalScrollView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:scrollbars="none">
+
+            <com.google.android.material.chip.ChipGroup
+                android:id="@+id/filterChipGroup"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                app:singleLine="true"
+                app:chipSpacingHorizontal="6dp" />
+        </HorizontalScrollView>
+
+        <TextView
+            android:id="@+id/resultCountText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Loading…"
+            android:textSize="12sp"
+            android:textColor="#667085"
+            android:layout_marginTop="4dp" />
+    </LinearLayout>
+
+    <!-- Progress bar -->
+    <ProgressBar
+        android:id="@+id/progressBar"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:visibility="gone"
+        app:layout_constraintTop_toBottomOf="@id/filterBar"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recyclerView"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        android:layout_marginTop="16dp"
+        android:layout_marginTop="8dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/titleTextView"
+        app:layout_constraintTop_toBottomOf="@id/filterBar"
         tools:listitem="@layout/item_resource" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
