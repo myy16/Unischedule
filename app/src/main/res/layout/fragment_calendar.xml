@@ -31,6 +31,14 @@
             android:textSize="12sp" />
     </LinearLayout>
 
+    <LinearLayout
+        android:id="@+id/calendarLegend"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginBottom="12dp"
+        android:gravity="center_vertical" />
+
     <!-- Empty state message -->
     <TextView
         android:id="@+id/noClassesText"
@@ -63,11 +71,16 @@
                 android:orientation="vertical"
                 android:background="@drawable/grid_border">
 
-                <!-- Time header placeholder -->
-                <View
+                <!-- Time header label -->
+                <TextView
                     android:layout_width="match_parent"
                     android:layout_height="40dp"
-                    android:background="@color/light_gray" />
+                    android:background="@color/light_gray"
+                    android:gravity="center"
+                    android:text="Time"
+                    android:textColor="@android:color/black"
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
 
                 <!-- Time slots -->
                 <LinearLayout

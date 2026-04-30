@@ -10,18 +10,6 @@
             android:icon="@android:drawable/ic_menu_today"
             android:title="Dashboard" />
         <item
-            android:id="@+id/nav_faculty"
-            android:icon="@android:drawable/ic_menu_agenda"
-            android:title="Faculty" />
-        <item
-            android:id="@+id/nav_rooms"
-            android:icon="@android:drawable/ic_menu_myplaces"
-            android:title="Rooms" />
-        <item
-            android:id="@+id/nav_add_course"
-            android:icon="@android:drawable/ic_menu_add"
-            android:title="Add Course" />
-        <item
             android:id="@+id/nav_resources"
             android:icon="@android:drawable/ic_menu_manage"
             android:title="Resource Management" />

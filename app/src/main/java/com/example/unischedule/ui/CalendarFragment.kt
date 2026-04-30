@@ -28,6 +28,10 @@ import com.google.android.material.color.MaterialColors
 import com.google.android.material.snackbar.Snackbar
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
+import java.text.ParseException
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 /**
  * Task 5: CalendarFragment for Lecturers.
@@ -48,9 +52,10 @@ class CalendarFragment : Fragment() {
         )
     }
 
-    // Time slots: 9:00 AM to 5:00 PM (9 slots of 1 hour each)
+    // Time slots: 9:00 AM to 5:30 PM, showing 30-minute rows for better schedule alignment.
     private val timeSlots = listOf(
-        "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00"
+        "09:00", "09:30", "10:00", "10:30", "11:00", "11:30", "12:00", "12:30", "13:00",
+        "13:30", "14:00", "14:30", "15:00", "15:30", "16:00", "16:30", "17:00", "17:30"
     )
 
     private var currentAvailability: List<InstructorAvailability> = emptyList()
@@ -83,6 +88,7 @@ class CalendarFragment : Fragment() {
 
         // Build static calendar grid (time slots and day headers)
         buildCalendarGrid()
+        setupLegend()
 
         // Collect schedule data and populate grid
         observeScheduleUpdates()
@@ -272,9 +278,7 @@ class CalendarFragment : Fragment() {
         // Place each schedule entry in its grid cell
         for (schedule in schedules) {
             val dayNum = schedule.dayOfWeek
-            val startTime = schedule.startTime
-
-            // Find the cell for this schedule
+            val startTime = normalizeTimeSlot(schedule.startTime) ?: schedule.startTime
             val cellTag = "cell_${dayNum}_${startTime}"
             val cell = binding.dayColumnsContainer.findViewWithTag<LinearLayout>(cellTag) ?: continue
 
@@ -285,7 +289,10 @@ class CalendarFragment : Fragment() {
             cell.addView(courseCard)
 
             // Mark schedule cell as busy/occupied when availability does not include this slot.
-            val isAvailable = currentAvailability.any { it.dayOfWeek == dayNum && it.startTime == startTime }
+            val normalizedStart = normalizeTimeSlot(startTime) ?: startTime
+            val isAvailable = currentAvailability.any {
+                it.dayOfWeek == dayNum && normalizeTimeSlot(it.startTime) == normalizedStart
+            }
             cell.setBackgroundColor(
                 MaterialColors.getColor(
                     cell,
@@ -301,7 +308,8 @@ class CalendarFragment : Fragment() {
             for (timeSlot in timeSlots) {
                 val cellTag = "cell_${dayNum}_${timeSlot}"
                 val cell = binding.dayColumnsContainer.findViewWithTag<LinearLayout>(cellTag) ?: continue
-                val hasAvailability = currentAvailability.any { it.dayOfWeek == dayNum && it.startTime == timeSlot }
+                val normalizedSlot = normalizeTimeSlot(timeSlot) ?: timeSlot
+                val hasAvailability = currentAvailability.any { it.dayOfWeek == dayNum && normalizeTimeSlot(it.startTime) == normalizedSlot }
                 if (cell.childCount == 0) {
                     cell.setBackgroundColor(
                         MaterialColors.getColor(
@@ -324,9 +332,67 @@ class CalendarFragment : Fragment() {
                 val cellTag = "cell_${dayNum}_${timeSlot}"
                 val cell = binding.dayColumnsContainer.findViewWithTag<LinearLayout>(cellTag) ?: continue
                 cell.removeAllViews()
+                cell.setBackgroundColor(Color.WHITE)
             }
         }
     }
+
+    private fun normalizeTimeSlot(rawTime: String): String? {
+        val normalized = rawTime.trim()
+        val patterns = listOf("H:mm", "HH:mm", "h:mm a", "hh:mm a")
+        for (pattern in patterns) {
+            try {
+                val parser = SimpleDateFormat(pattern, Locale.US).apply { isLenient = false }
+                val date: Date = parser.parse(normalized) ?: continue
+                return SimpleDateFormat("HH:mm", Locale.US).format(date)
+            } catch (e: ParseException) {
+                // Continue trying next format until one works
+            }
+        }
+        return null
+    }
+
+    private fun setupLegend() {
+        binding.calendarLegend.removeAllViews()
+
+        val legendItems = listOf(
+            LegendItem("Scheduled", "#BBDEFB"),
+            LegendItem("Available", "#C8E6C9"),
+            LegendItem("Unavailable", "#F8BBD0")
+        )
+
+        for (item in legendItems) {
+            val legendRow = LinearLayout(requireContext()).apply {
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    setMargins(0, 0, 16, 0)
+                }
+                orientation = LinearLayout.HORIZONTAL
+                gravity = android.view.Gravity.CENTER_VERTICAL
+            }
+
+            val swatch = View(requireContext()).apply {
+                layoutParams = LinearLayout.LayoutParams(16, 16).apply {
+                    setMargins(0, 0, 8, 0)
+                }
+                setBackgroundColor(Color.parseColor(item.colorHex))
+            }
+
+            val label = TextView(requireContext()).apply {
+                text = item.text
+                textSize = 12f
+                setTextColor(Color.DKGRAY)
+            }
+
+            legendRow.addView(swatch)
+            legendRow.addView(label)
+            binding.calendarLegend.addView(legendRow)
+        }
+    }
+
+    private data class LegendItem(val text: String, val colorHex: String)
 
     /**
      * Creates a course card view to display in a calendar cell.

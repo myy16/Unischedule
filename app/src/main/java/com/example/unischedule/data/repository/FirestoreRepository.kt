@@ -26,6 +26,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 
@@ -581,12 +582,18 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
 
     // Instructor Availability Firestore methods
     fun observeInstructorAvailability(instructorId: Long): Flow<UiState<List<FirestoreInstructorAvailability>>> =
-        observeQuery(
+        observeQuery<FirestoreInstructorAvailability>(
             db.collection("instructor_availability")
                 .whereEqualTo("instructorId", instructorId)
-                .orderBy("dayOfWeek")
-                .orderBy("startTime")
-        )
+        ).map { state ->
+            when (state) {
+                is UiState.Success<List<FirestoreInstructorAvailability>> -> UiState.Success(
+                    state.data.sortedWith(compareBy({ it.dayOfWeek }, { it.startTime }))
+                )
+                is UiState.Error -> state
+                is UiState.Loading -> state
+            }
+        }
 
     suspend fun toggleInstructorAvailability(
         instructorId: Long,

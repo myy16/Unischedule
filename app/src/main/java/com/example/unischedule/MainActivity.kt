@@ -139,9 +139,6 @@ class MainActivity : AppCompatActivity() {
         menu.findItem(R.id.admin_section)?.isVisible = isAdmin
 
         val adminOnlyItems = listOf(
-            R.id.nav_faculty,
-            R.id.nav_rooms,
-            R.id.nav_add_course,
             R.id.nav_resources,
             R.id.nav_courses,
             R.id.nav_scheduler,
